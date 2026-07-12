@@ -86,40 +86,40 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SPRT-01 | TBD | Pending |
-| SPRT-02 | TBD | Pending |
-| SPRT-03 | TBD | Pending |
-| SPRT-04 | TBD | Pending |
-| SPRT-05 | TBD | Pending |
-| SPRT-06 | TBD | Pending |
-| SPRT-07 | TBD | Pending |
-| SPRT-08 | TBD | Pending |
-| ADPT-01 | TBD | Pending |
-| ADPT-02 | TBD | Pending |
-| ADPT-03 | TBD | Pending |
-| ADPT-04 | TBD | Pending |
-| ADPT-05 | TBD | Pending |
-| GAME-01 | TBD | Pending |
-| GAME-02 | TBD | Pending |
-| GAME-03 | TBD | Pending |
-| GAME-04 | TBD | Pending |
-| GAME-05 | TBD | Pending |
-| GAME-06 | TBD | Pending |
-| ANLT-01 | TBD | Pending |
-| ANLT-02 | TBD | Pending |
-| CONT-01 | TBD | Pending |
-| CONT-02 | TBD | Pending |
-| CONT-03 | TBD | Pending |
-| CONT-04 | TBD | Pending |
-| INFR-01 | TBD | Pending |
-| INFR-02 | TBD | Pending |
-| INFR-03 | TBD | Pending |
-| INFR-04 | TBD | Pending |
+| INFR-01 | Phase 1 | Pending |
+| INFR-02 | Phase 1 | Pending |
+| INFR-03 | Phase 1 | Pending |
+| INFR-04 | Phase 1 | Pending |
+| CONT-02 | Phase 1 | Pending |
+| CONT-03 | Phase 1 | Pending |
+| ADPT-05 | Phase 1 | Pending |
+| ADPT-01 | Phase 2 | Pending |
+| ADPT-02 | Phase 2 | Pending |
+| ADPT-03 | Phase 2 | Pending |
+| ADPT-04 | Phase 2 | Pending |
+| CONT-01 | Phase 3 | Pending |
+| CONT-04 | Phase 3 | Pending |
+| SPRT-01 | Phase 4 | Pending |
+| SPRT-02 | Phase 4 | Pending |
+| SPRT-03 | Phase 4 | Pending |
+| SPRT-04 | Phase 4 | Pending |
+| SPRT-05 | Phase 4 | Pending |
+| SPRT-06 | Phase 4 | Pending |
+| SPRT-07 | Phase 4 | Pending |
+| SPRT-08 | Phase 4 | Pending |
+| GAME-01 | Phase 5 | Pending |
+| GAME-02 | Phase 5 | Pending |
+| GAME-03 | Phase 5 | Pending |
+| GAME-04 | Phase 5 | Pending |
+| GAME-05 | Phase 5 | Pending |
+| GAME-06 | Phase 5 | Pending |
+| ANLT-01 | Phase 6 | Pending |
+| ANLT-02 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements: 29 total
-- Mapped to phases: 0
-- Unmapped: 29 ⚠️ (will be mapped during roadmap creation)
+- Mapped to phases: 29
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-07-12*
