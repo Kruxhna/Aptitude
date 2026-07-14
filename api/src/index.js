@@ -10,6 +10,9 @@ const mockUserMiddleware = require('./middleware/mockUser');
 
 // Route imports
 const healthRoutes = require('./routes/health');
+const sprintRoutes = require('./routes/sprint');
+const userRoutes = require('./routes/users');
+const leaderboardRoutes = require('./routes/leaderboard');
 
 const app = express();
 const PORT = process.env.API_PORT || 3000;
@@ -22,19 +25,9 @@ app.use(mockUserMiddleware);
 
 // --- Routes ---
 app.use(healthRoutes);
-
-// Placeholder routes (will be replaced in Plan 01C)
-app.get('/api/sprint', (req, res) => {
-  res.json({ message: 'Sprint route — stub (Plan 01C)' });
-});
-
-app.get('/api/users/me', (req, res) => {
-  res.json({ message: 'User route — stub (Plan 01C)', userId: req.userId });
-});
-
-app.get('/api/leaderboard', (req, res) => {
-  res.json({ message: 'Leaderboard route — stub (Plan 01C)' });
-});
+app.use(sprintRoutes);
+app.use(userRoutes);
+app.use(leaderboardRoutes);
 
 // --- Error Handler ---
 app.use((err, req, res, next) => {

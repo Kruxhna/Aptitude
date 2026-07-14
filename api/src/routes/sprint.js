@@ -1,0 +1,94 @@
+const express = require('express');
+const router = express.Router();
+const { User, Question } = require('../models');
+const engineClient = require('../services/engineClient');
+
+/**
+ * GET /api/sprint
+ * Generate a new sprint of questions for the current user.
+ * Query params: type (quick|standard|deep, default: standard)
+ */
+router.get('/api/sprint', async (req, res, next) => {
+  try {
+    const type = req.query.type || 'standard';
+    
+    let questionCount = 10;
+    if (type === 'quick') questionCount = 5;
+    else if (type === 'deep') questionCount = 15;
+
+    // 1. Fetch user to get current ratings
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // 2. Call adaptive engine
+    const engineResponse = await engineClient.calculateNext(
+      req.userId.toString(),
+      user.ratings,
+      questionCount
+    );
+
+    let questions = [];
+
+    // 3. Fetch questions based on engine response, or fallback to random
+    if (engineResponse.questionIds && engineResponse.questionIds.length > 0) {
+      questions = await Question.find({ _id: { $in: engineResponse.questionIds } });
+    } else {
+      // Fallback for v1 stub: return random questions
+      questions = await Question.aggregate([
+        { $match: { active: true } },
+        { $sample: { size: questionCount } }
+      ]);
+    }
+
+    res.json({
+      sprintId: `sprint_${Date.now()}`,
+      type,
+      questionCount: questions.length,
+      questions,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/sprint/submit
+ * Submit sprint responses and update user ratings.
+ * Body: { responses: [{ questionId, answer, timeMs }] }
+ */
+router.post('/api/sprint/submit', async (req, res, next) => {
+  try {
+    const { responses } = req.body;
+    
+    if (!responses || !Array.isArray(responses) || responses.length === 0) {
+      return res.status(400).json({ error: 'Invalid or empty responses array' });
+    }
+
+    // 1. Call engine to update ratings (returns stub in v1)
+    // We pass correct: true as a placeholder since full scoring logic is in Phase 4
+    const formattedResponses = responses.map(r => ({
+      ...r,
+      correct: true, // Stub for now
+    }));
+
+    const engineResponse = await engineClient.updateRating(
+      req.userId.toString(),
+      formattedResponses
+    );
+
+    // 2. Return stub results (will update MongoDB in Phase 4)
+    res.json({
+      message: 'Sprint submitted successfully (stub)',
+      accuracy: 0,
+      xpEarned: engineResponse.xpEarned || 0,
+      ratingsAfter: engineResponse.newRatings || {},
+      results: [],
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+module.exports = router;
