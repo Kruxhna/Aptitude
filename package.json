@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "workspaces": ["client", "api"],
+  "scripts": {
+    "dev": "concurrently \"docker compose up\" \"cd client && npx expo start\"",
+    "dev:docker": "docker compose up",
+    "dev:docker:build": "docker compose up --build",
+    "lint": "concurrently \"cd api && npm run lint\" \"cd client && npm run lint\"",
+    "seed": "cd api && node src/scripts/seed.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

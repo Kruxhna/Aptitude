@@ -1,0 +1,76 @@
+services:
+  # --- Node.js/Express API Gateway ---
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - ./api:/app
+      - /app/node_modules  # Prevent host node_modules from overriding container's
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/aptitude
+      - REDIS_URL=redis://redis:6379
+      - ENGINE_URL=http://engine:8000
+      - API_PORT=3000
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # --- Python/FastAPI Adaptive Engine ---
+  engine:
+    build:
+      context: ./engine
+      dockerfile: Dockerfile
+    ports:
+      - "${ENGINE_PORT:-8000}:8000"
+    volumes:
+      - ./engine:/app
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/aptitude
+      - ENGINE_PORT=8000
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # --- MongoDB ---
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # --- Redis ---
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+    name: aptitude_mongodb_data
+  redis_data:
+    name: aptitude_redis_data
