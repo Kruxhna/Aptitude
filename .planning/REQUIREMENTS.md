@@ -18,10 +18,10 @@
 
 ### Adaptive
 
-- [ ] **ADPT-01**: System tracks an independent ELO rating per skill category per user (Verbal, Quantitative, Logical, Spatial)
-- [ ] **ADPT-02**: System selects questions matching the user's current skill ELO rating (±tolerance band)
-- [ ] **ADPT-03**: System updates user and question ELO ratings after each answered question based on correctness and response time
-- [ ] **ADPT-04**: New users start with a default ELO rating (1000) with a higher K-factor (K=40) that decays to K=20 after 10 sessions
+- [x] **ADPT-01**: System tracks an independent ELO rating per skill category per user (Verbal, Quantitative, Logical, Spatial)
+- [x] **ADPT-02**: System selects questions matching the user's current skill ELO rating (±tolerance band)
+- [x] **ADPT-03**: System updates user and question ELO ratings after each answered question based on correctness and response time
+- [x] **ADPT-04**: New users start with a default ELO rating (1000) with a higher K-factor (K=40) that decays to K=20 after 10 sessions
 - [ ] **ADPT-05**: Node.js API communicates with FastAPI engine via internal HTTP to request difficulty calculations
 
 ### Gamification
@@ -93,10 +93,10 @@
 | CONT-02 | Phase 1 | Pending |
 | CONT-03 | Phase 1 | Pending |
 | ADPT-05 | Phase 1 | Pending |
-| ADPT-01 | Phase 2 | Pending |
-| ADPT-02 | Phase 2 | Pending |
-| ADPT-03 | Phase 2 | Pending |
-| ADPT-04 | Phase 2 | Pending |
+| ADPT-01 | Phase 2 | Complete |
+| ADPT-02 | Phase 2 | Complete |
+| ADPT-03 | Phase 2 | Complete |
+| ADPT-04 | Phase 2 | Complete |
 | CONT-01 | Phase 3 | Pending |
 | CONT-04 | Phase 3 | Pending |
 | SPRT-01 | Phase 4 | Pending |
@@ -117,6 +117,7 @@
 | ANLT-02 | Phase 6 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 29 total
 - Mapped to phases: 29
 - Unmapped: 0 ✓

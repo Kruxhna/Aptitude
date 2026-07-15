@@ -7,10 +7,12 @@
 ---
 
 ### Phase 1: Foundation & Scaffolding
+
 **Goal:** Monorepo structure, Docker Compose dev environment, MongoDB schemas, Express + FastAPI stubs, and inter-service communication working end-to-end.
 **Mode:** mvp
 **Requirements:** INFR-01, INFR-02, INFR-03, INFR-04, CONT-02, CONT-03, ADPT-05
 **Success Criteria:**
+
 1. `docker compose up` starts all 4 services (API, engine, MongoDB, Redis) with passing health checks
 2. Node.js API returns questions from MongoDB via a GET endpoint
 3. Node.js API successfully calls FastAPI engine and receives a response
@@ -20,10 +22,12 @@
 ---
 
 ### Phase 2: Adaptive Engine
+
 **Goal:** ELO-based difficulty calculation working end-to-end — from user profile to question selection to rating updates.
 **Mode:** mvp
 **Requirements:** ADPT-01, ADPT-02, ADPT-03, ADPT-04
 **Success Criteria:**
+
 1. FastAPI endpoint accepts user skill ratings and returns difficulty-matched question IDs
 2. ELO ratings update correctly after a simulated quiz (correctness + speed factored in)
 3. New users start at ELO 1000 with K=40, decaying to K=20 after 10 sessions
@@ -33,10 +37,12 @@
 ---
 
 ### Phase 3: Question Generation Pipeline
+
 **Goal:** Hybrid LLM + template pipeline generates valid questions across all 4 skill categories, with a batch seeding script to populate the database.
 **Mode:** mvp
 **Requirements:** CONT-01, CONT-04
 **Success Criteria:**
+
 1. LLM generates raw questions for Verbal, Quantitative, Logical, and Spatial categories
 2. Template validator checks answer correctness, option distinctness, and format compliance
 3. Batch seeding script imports 100+ validated questions per category into MongoDB
@@ -46,10 +52,12 @@
 ---
 
 ### Phase 4: Daily Sprint API
+
 **Goal:** Complete sprint flow works via API — user requests a sprint, receives personalized questions, submits answers, gets scored with ELO updates.
 **Mode:** mvp
 **Requirements:** SPRT-01, SPRT-02, SPRT-03, SPRT-04, SPRT-05, SPRT-06, SPRT-07, SPRT-08
 **Success Criteria:**
+
 1. GET `/api/sprint?type=standard` returns 10 difficulty-matched questions for the mock user
 2. Sprint respects requested length (quick=5, standard=10, deep=15)
 3. POST `/api/sprint/submit` accepts responses with timing data and returns scored results
@@ -59,10 +67,12 @@
 ---
 
 ### Phase 5: Gamification System
+
 **Goal:** XP, streaks, and leaderboard working end-to-end — Redis-backed with MongoDB sync.
 **Mode:** mvp
 **Requirements:** GAME-01, GAME-02, GAME-03, GAME-04, GAME-05, GAME-06
 **Success Criteria:**
+
 1. Sprint completion awards XP with speed bonus multiplier (stored in Redis, synced to MongoDB)
 2. Daily streak increments on sprint completion and displays correctly
 3. Streak freeze can be activated and protects one missed day
@@ -73,10 +83,12 @@
 ---
 
 ### Phase 6: Performance Analytics API
+
 **Goal:** Analytics endpoints return per-skill progress and historical trends that the client can graph.
 **Mode:** mvp
 **Requirements:** ANLT-01, ANLT-02
 **Success Criteria:**
+
 1. GET `/api/analytics/progress` returns current per-skill rating normalized to a displayable scale
 2. GET `/api/analytics/history` returns time-series data (accuracy, speed) per skill over last 30 days
 3. Data is aggregated from quiz session history in MongoDB
@@ -85,11 +97,13 @@
 ---
 
 ### Phase 7: React Native Mobile Client
+
 **Goal:** Expo-based mobile app connects to the API and delivers the full sprint → results → dashboard → leaderboard flow.
 **Mode:** mvp
 **UI hint:** yes
 **Requirements:** SPRT-01, SPRT-02, SPRT-03, SPRT-04, SPRT-05, SPRT-06, SPRT-07, SPRT-08, GAME-02, GAME-05, ANLT-01, ANLT-02
 **Success Criteria:**
+
 1. App launches on Expo Go and navigates between Home, Sprint, Results, Dashboard, and Leaderboard screens
 2. Sprint screen displays questions with timer and accepts MCQ/numerical/image answers
 3. Results screen shows post-sprint summary with answer review
@@ -104,7 +118,7 @@
 | Phase | Name | Requirements | Success Criteria |
 |-------|------|-------------|-----------------|
 | 1 | Foundation & Scaffolding | INFR-01, INFR-02, INFR-03, INFR-04, CONT-02, CONT-03, ADPT-05 | 5 |
-| 2 | Adaptive Engine | ADPT-01, ADPT-02, ADPT-03, ADPT-04 | 5 |
+| 2 | 2/2 | Complete    | 2026-07-15 |
 | 3 | Question Generation Pipeline | CONT-01, CONT-04 | 5 |
 | 4 | Daily Sprint API | SPRT-01 – SPRT-08 | 5 |
 | 5 | Gamification System | GAME-01 – GAME-06 | 6 |
