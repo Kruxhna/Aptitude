@@ -31,6 +31,8 @@ class NextQuestionRequest(BaseModel):
 class ResponseItem(BaseModel):
     """Single question response from a quiz session."""
     questionId: str
+    skill: str
+    questionDifficulty: float = Field(default=1000.0)
     answer: str | int | float
     correct: bool
     timeMs: int = Field(ge=0)
@@ -39,7 +41,9 @@ class ResponseItem(BaseModel):
 class UpdateRatingRequest(BaseModel):
     """Request to update user ratings after a quiz session."""
     userId: str
+    currentRatings: SkillRatings
     responses: list[ResponseItem]
+    sessionsCompleted: int = Field(default=0)
 
 
 # --- FastAPI App ---
