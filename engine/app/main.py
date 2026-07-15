@@ -9,6 +9,10 @@ question selections and updated ratings.
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 from typing import Optional
+from contextlib import asynccontextmanager
+from app.db import connect_to_mongo, close_mongo_connection
+from app.question_selector import select_questions
+from app.elo import update_ratings
 
 
 # --- Pydantic Models ---
@@ -48,10 +52,17 @@ class UpdateRatingRequest(BaseModel):
 
 # --- FastAPI App ---
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await connect_to_mongo()
+    yield
+    await close_mongo_connection()
+
 app = FastAPI(
     title="GATE Aptitude Engine",
     description="Adaptive difficulty engine for GATE Aptitude Trainer",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 
@@ -65,14 +76,16 @@ async def health_check():
 async def calculate_next(request: NextQuestionRequest):
     """
     Calculate the next set of questions for a user based on their skill ratings.
-    
-    Stub implementation — will be replaced with actual ELO-based selection
-    in Phase 3 (Adaptive Engine).
+    Uses ELO-based selection from MongoDB.
     """
+    ratings_dict = request.skillRatings.model_dump()
+    question_ids = await select_questions(ratings_dict, request.questionCount)
+    
     return {
-        "questionIds": [],
-        "message": "Stub — adaptive engine not yet implemented",
+        "questionIds": question_ids,
+        "message": "Questions selected successfully",
         "requestedCount": request.questionCount,
+        "returnedCount": len(question_ids)
     }
 
 
@@ -80,17 +93,22 @@ async def calculate_next(request: NextQuestionRequest):
 async def update_rating(request: UpdateRatingRequest):
     """
     Update user ratings after completing a quiz session.
-    
-    Stub implementation — will be replaced with actual ELO calculation
-    in Phase 3 (Adaptive Engine).
     """
+    current_ratings_dict = request.currentRatings.model_dump()
+    responses_list = [resp.model_dump() for resp in request.responses]
+    
+    new_ratings = update_ratings(
+        current_ratings=current_ratings_dict,
+        responses=responses_list,
+        sessions_completed=request.sessionsCompleted
+    )
+    
+    # Calculate XP (placeholder logic: 10 XP per correct answer)
+    # Full XP with speed bonus will be implemented in Phase 5
+    xp_earned = sum(10 for resp in responses_list if resp.get('correct'))
+    
     return {
-        "newRatings": {
-            "verbal": 1000,
-            "quantitative": 1000,
-            "logical": 1000,
-            "spatial": 1000,
-        },
-        "xpEarned": 0,
-        "message": "Stub — rating calculation not yet implemented",
+        "newRatings": new_ratings,
+        "xpEarned": xp_earned,
+        "message": "Ratings updated successfully",
     }

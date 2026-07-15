@@ -34,14 +34,18 @@ async function calculateNext(userId, skillRatings, questionCount = 10) {
 /**
  * Call the adaptive engine to update user ratings after a sprint.
  * @param {string} userId - The user ID
- * @param {Array} responses - Array of response items { questionId, answer, correct, timeMs }
+ * @param {Array} responses - Array of response items { questionId, skill, questionDifficulty, answer, correct, timeMs }
+ * @param {object} currentRatings - The user's current ELO ratings
+ * @param {number} sessionsCompleted - Number of sessions user has completed
  * @returns {Promise<object>} The engine's response (new ratings and XP)
  */
-async function updateRating(userId, responses) {
+async function updateRating(userId, responses, currentRatings, sessionsCompleted) {
   try {
     const response = await client.post('/update-rating', {
       userId,
       responses,
+      currentRatings,
+      sessionsCompleted,
     });
     return response.data;
   } catch (error) {
