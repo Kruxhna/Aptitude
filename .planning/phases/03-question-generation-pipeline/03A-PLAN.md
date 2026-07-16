@@ -1,7 +1,7 @@
 ---
 phase: 03
 plan: 03A
-title: "LLM Question Generator & Validator"
+title: "LLM Question Generator & Validator (OpenRouter/Llama 3.3)"
 wave: 1
 depends_on: []
 requirements: [CONT-01]
@@ -21,12 +21,12 @@ autonomous: true
 # Plan 03A: LLM Question Generator & Validator
 
 ## Objective
-Build the OpenAI GPT-4o powered question generation pipeline for Verbal, Quantitative, and Logical skill categories. Includes per-skill prompt templates, structured JSON output parsing, and an automated validation step that checks schema compliance, option distinctness, answer correctness, and explanation quality.
+Build the question generation pipeline using the OpenRouter API (Llama 3.3 70b instruct) for Verbal, Quantitative, and Logical skill categories. Includes per-skill prompt templates, structured JSON output parsing, and an automated validation step that checks schema compliance, option distinctness, answer correctness, and explanation quality.
 
 ## Tasks
 
 <task id="03A-T1">
-<title>Install OpenAI SDK and configure environment</title>
+<title>Install OpenAI SDK and configure environment for OpenRouter</title>
 <read_first>
 - api/package.json
 - .env.example
@@ -34,13 +34,13 @@ Build the OpenAI GPT-4o powered question generation pipeline for Verbal, Quantit
 </read_first>
 <action>
 Add `openai` npm package to api/package.json dependencies.
-Add `OPENAI_API_KEY` to `.env.example` with a placeholder value.
-Add `OPENAI_API_KEY` environment variable to the `api` service in `docker-compose.yml` (read from host env).
+Add `OPENROUTER_API_KEY` to `.env.example` with a placeholder value.
+Add `OPENROUTER_API_KEY` environment variable to the `api` service in `docker-compose.yml` (read from host env).
 </action>
 <acceptance_criteria>
 - api/package.json contains "openai" in dependencies
-- .env.example contains OPENAI_API_KEY=
-- docker-compose.yml api service has OPENAI_API_KEY in environment section
+- .env.example contains OPENROUTER_API_KEY=
+- docker-compose.yml api service has OPENROUTER_API_KEY in environment section
 </acceptance_criteria>
 </task>
 
@@ -54,7 +54,7 @@ Add `OPENAI_API_KEY` environment variable to the `api` service in `docker-compos
 <action>
 Create `api/src/scripts/prompts/` directory with three files:
 
-**verbal.js** — System prompt instructs GPT-4o to generate GATE verbal aptitude questions (synonyms, antonyms, analogies, sentence completion, reading comprehension). Each question is MCQ with 4 options. Prompt requests a difficulty rating (1-5 scale).
+**verbal.js** — System prompt instructs the model to generate GATE verbal aptitude questions (synonyms, antonyms, analogies, sentence completion, reading comprehension). Each question is MCQ with 4 options. Prompt requests a difficulty rating (1-5 scale).
 
 **quantitative.js** — System prompt for GATE quantitative aptitude (ratios, percentages, algebra, probability, series). Questions can be MCQ (4 options) or numerical type. For numerical, include `correctAnswer` and `tolerance`. Prompt asks model to verify its own math.
 
@@ -72,7 +72,7 @@ Each module exports: `{ systemPrompt, userPrompt(count, difficulty) }` where `co
 </task>
 
 <task id="03A-T3">
-<title>Build the LLM question generator script</title>
+<title>Build the LLM question generator script (OpenRouter)</title>
 <read_first>
 - api/src/scripts/prompts/verbal.js
 - api/src/scripts/prompts/quantitative.js
@@ -83,9 +83,9 @@ Each module exports: `{ systemPrompt, userPrompt(count, difficulty) }` where `co
 Create `api/src/scripts/generate-questions.js`:
 
 1. Accepts CLI args: `--skill verbal|quantitative|logical`, `--count N` (default 10), `--difficulty 1-5` (default all levels), `--output generated/` (default directory).
-2. Initializes OpenAI client with `OPENAI_API_KEY` from env.
-3. Uses `response_format: { type: "json_schema", json_schema: { name: "questions", strict: true, schema: {...} } }` for structured output.
-4. Calls the appropriate skill prompt template.
+2. Initializes OpenAI client configured for OpenRouter: `new OpenAI({ baseURL: "https://openrouter.ai/api/v1", apiKey: process.env.OPENROUTER_API_KEY })`.
+3. Calls the Chat Completions API with model `meta-llama/llama-3.3-70b-instruct`.
+4. Uses `response_format: { type: "json_object" }` (or schema if fully supported by OpenRouter/Llama 3.3, otherwise instruct it to output strict JSON). We will use `response_format: { type: "json_object" }` to be safe and instruct the system prompt to return a specific JSON schema.
 5. Generates questions in batches of 5-10 per API call.
 6. For bell curve distribution (when --difficulty is omitted): generates 15% easy, 25% below-avg, 30% medium, 20% hard, 10% expert.
 7. Writes raw LLM output to `generated/{skill}_{difficulty}_{timestamp}.json`.
@@ -94,9 +94,9 @@ Create `api/src/scripts/generate-questions.js`:
 </action>
 <acceptance_criteria>
 - Running `node api/src/scripts/generate-questions.js --skill verbal --count 5 --difficulty 3` creates a JSON file in generated/ directory
+- OpenRouter API is called using Llama 3.3 70b instruct
 - JSON file contains an array of question objects with text, type, skill, difficulty (ELO-mapped), explanation, options, correctOptionIndex fields
 - Bell curve distribution is applied when --difficulty is omitted
-- Script gracefully handles API errors and retries once
 </acceptance_criteria>
 </task>
 
@@ -133,12 +133,13 @@ Create `api/src/scripts/validate-questions.js`:
 </task>
 
 ## Verification
-- `node api/src/scripts/generate-questions.js --skill verbal --count 5 --difficulty 3` produces valid JSON output
+- `node api/src/scripts/generate-questions.js --skill verbal --count 5 --difficulty 3` produces valid JSON output via OpenRouter
 - `node api/src/scripts/validate-questions.js --input generated/` reports validation results
 - Generated questions match the MongoDB Question schema structure
 
 ## Must Haves
-- [x] OpenAI SDK configured with structured output
+- [x] OpenAI SDK configured to point to OpenRouter
+- [x] Uses Llama 3.3 70b instruct
 - [x] Per-skill prompt templates covering GATE patterns
 - [x] Bell curve difficulty distribution
 - [x] Automated validation with clear pass/fail per question
