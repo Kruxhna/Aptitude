@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { User, Question } = require('../models');
 const engineClient = require('../services/engineClient');
+const redisClient = require('../services/redisClient');
 
 /**
  * GET /api/sprint
@@ -42,8 +43,18 @@ router.get('/api/sprint', async (req, res, next) => {
       ]);
     }
 
+    const sprintId = `sprint_${req.userId}_${Date.now()}`;
+    const sessionData = {
+      userId: req.userId.toString(),
+      questionIds: questions.map(q => q._id.toString()),
+      createdAt: Date.now()
+    };
+
+    // Store in Redis with a 30-minute expiration (1800 seconds)
+    await redisClient.set(`sprint:${sprintId}`, JSON.stringify(sessionData), 'EX', 1800);
+
     res.json({
-      sprintId: `sprint_${Date.now()}`,
+      sprintId,
       type,
       questionCount: questions.length,
       questions,

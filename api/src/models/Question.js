@@ -9,6 +9,7 @@ const questionSchema = new Schema(
     difficulty: { type: Number, default: 1000 },
     explanation: { type: String, required: true },
     active: { type: Boolean, default: true },
+    contentHash: { type: String, unique: true, sparse: true },
 
     // MCQ specific
     options: [{ type: String }],

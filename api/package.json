@@ -8,6 +8,14 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "seed": "node src/scripts/seed.js",
+    "generate:verbal": "node src/scripts/generate-questions.js --skill verbal --count 100",
+    "generate:quantitative": "node src/scripts/generate-questions.js --skill quantitative --count 100",
+    "generate:logical": "node src/scripts/generate-questions.js --skill logical --count 100",
+    "generate:spatial": "node src/scripts/generate-spatial.js --count 100",
+    "generate:all": "npm run generate:verbal && npm run generate:quantitative && npm run generate:logical && npm run generate:spatial",
+    "validate": "node src/scripts/validate-questions.js --input generated/",
+    "seed:batch": "node src/scripts/batch-seed.js --input generated/",
+    "pipeline": "npm run generate:all && npm run validate && npm run seed:batch",
     "lint": "echo 'No linter configured yet'"
   },
   "dependencies": {
@@ -18,6 +26,8 @@
     "helmet": "^8.0.0",
     "ioredis": "^5.4.0",
     "mongoose": "^8.8.0",
+    "openai": "^6.47.0",
+    "sharp": "^0.35.3",
     "zod": "^3.23.0"
   },
   "devDependencies": {

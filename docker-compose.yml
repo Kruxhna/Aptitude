@@ -14,6 +14,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - ENGINE_URL=http://engine:8000
       - API_PORT=3000
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
     depends_on:
       mongo:
         condition: service_healthy
