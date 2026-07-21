@@ -3,6 +3,7 @@ const router = express.Router();
 const { User, Question } = require('../models');
 const engineClient = require('../services/engineClient');
 const redisClient = require('../services/redisClient');
+const { scoreAnswer } = require('../utils/scorer');
 
 /**
  * GET /api/sprint
@@ -67,23 +68,48 @@ router.get('/api/sprint', async (req, res, next) => {
 /**
  * POST /api/sprint/submit
  * Submit sprint responses and update user ratings.
- * Body: { responses: [{ questionId, answer, timeMs }] }
+ * Body: { sprintId, responses: [{ questionId, answer, timeMs }] }
  */
 router.post('/api/sprint/submit', async (req, res, next) => {
   try {
-    const { responses } = req.body;
+    const { sprintId, responses } = req.body;
     
+    if (!sprintId) {
+      return res.status(400).json({ error: 'Missing sprintId' });
+    }
+
     if (!responses || !Array.isArray(responses) || responses.length === 0) {
       return res.status(400).json({ error: 'Invalid or empty responses array' });
     }
 
-    // 1. Fetch user for current ratings and session info
+    // 1. Redis session verification
+    const sessionDataStr = await redisClient.get(`sprint:${sprintId}`);
+    if (!sessionDataStr) {
+      return res.status(409).json({ error: 'Sprint session expired or already submitted' });
+    }
+
+    // Delete session immediately to prevent double-submission
+    await redisClient.del(`sprint:${sprintId}`);
+
+    const sessionData = JSON.parse(sessionDataStr);
+    if (sessionData.userId !== req.userId.toString()) {
+      return res.status(403).json({ error: 'Unauthorized sprint session' });
+    }
+
+    // Verify responses contain only the questions in this sprint session
+    const sessionQuestionIds = new Set(sessionData.questionIds);
+    const invalidQuestion = responses.some(r => !sessionQuestionIds.has(r.questionId));
+    if (invalidQuestion) {
+      return res.status(400).json({ error: 'Responses contain questions not in this sprint session' });
+    }
+
+    // 2. Fetch user for current ratings and session info
     const user = await User.findById(req.userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // 2. Fetch questions to enrich responses with skill and difficulty
+    // 3. Fetch questions to score and enrich responses
     const questionIds = responses.map(r => r.questionId);
     const questions = await Question.find({ _id: { $in: questionIds } });
     const questionMap = {};
@@ -91,18 +117,57 @@ router.post('/api/sprint/submit', async (req, res, next) => {
       questionMap[q._id.toString()] = q;
     });
 
-    // We pass correct: true as a placeholder since full scoring logic is in Phase 4
-    const formattedResponses = responses.map(r => {
-      const q = questionMap[r.questionId];
-      return {
-        ...r,
-        correct: true, // Stub for now
-        skill: q ? q.skill : 'verbal',
-        questionDifficulty: q ? q.difficulty : 1000,
-      };
-    });
+    // Score answers and construct enriched response items for engine and client
+    const results = [];
+    const formattedResponses = [];
+    const bulkOps = [];
 
-    // 3. Call engine to update ratings
+    for (const r of responses) {
+      const q = questionMap[r.questionId];
+      if (!q) continue;
+
+      const { correct, correctAnswer } = scoreAnswer(q, r.answer);
+
+      results.push({
+        questionId: r.questionId,
+        correct,
+        userAnswer: r.answer,
+        correctAnswer,
+        explanation: q.explanation,
+        timeMs: r.timeMs,
+        skill: q.skill,
+      });
+
+      formattedResponses.push({
+        questionId: r.questionId,
+        skill: q.skill,
+        questionDifficulty: q.difficulty,
+        answer: r.answer,
+        correct,
+        timeMs: r.timeMs,
+      });
+
+      // Prepare question metric updates
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: q._id },
+          update: {
+            $inc: {
+              timesAnswered: 1,
+              timesCorrect: correct ? 1 : 0,
+            },
+          },
+        },
+      });
+    }
+
+    // Execute bulk write to update question metrics
+    if (bulkOps.length > 0) {
+      await Question.bulkWrite(bulkOps);
+    }
+
+    // 4. Call engine to update ratings
+    const ratingsBefore = { ...user.ratings.toObject() };
     const engineResponse = await engineClient.updateRating(
       req.userId.toString(),
       formattedResponses,
@@ -110,13 +175,39 @@ router.post('/api/sprint/submit', async (req, res, next) => {
       user.sessionsCompleted || 0
     );
 
-    // 4. Return stub results (will update MongoDB in Phase 4)
+    // 5. Update user document in MongoDB
+    user.ratings = engineResponse.newRatings;
+    user.totalXp += engineResponse.xpEarned;
+    user.sessionsCompleted = (user.sessionsCompleted || 0) + 1;
+    user.lastSprintDate = new Date();
+    await user.save();
+
+    // 6. Calculate summary metrics
+    const totalQuestions = results.length;
+    const totalCorrect = results.filter(r => r.correct).length;
+    const accuracy = totalQuestions > 0 ? totalCorrect / totalQuestions : 0;
+    const timeTotalMs = responses.reduce((acc, r) => acc + (r.timeMs || 0), 0);
+
+    // Calculate rating deltas
+    const ratingDeltas = {};
+    const skills = ['verbal', 'quantitative', 'logical', 'spatial'];
+    skills.forEach(skill => {
+      const before = ratingsBefore[skill] || 1000;
+      const after = engineResponse.newRatings[skill] || 1000;
+      ratingDeltas[skill] = Math.round(after - before);
+    });
+
     res.json({
-      message: 'Sprint submitted successfully (stub)',
-      accuracy: 0,
+      message: 'Sprint submitted successfully',
+      accuracy,
+      totalCorrect,
+      totalQuestions,
       xpEarned: engineResponse.xpEarned || 0,
-      ratingsAfter: engineResponse.newRatings || {},
-      results: [],
+      timeTotalMs,
+      ratingsBefore,
+      ratingsAfter: engineResponse.newRatings,
+      ratingDeltas,
+      results,
     });
   } catch (error) {
     next(error);
