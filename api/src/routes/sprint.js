@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { User, Question } = require('../models');
 const engineClient = require('../services/engineClient');
-const redisClient = require('../services/redisClient');
+const redisClient = require('../config/redis');
 const { scoreAnswer } = require('../utils/scorer');
 
 /**

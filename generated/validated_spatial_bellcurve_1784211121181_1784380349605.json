@@ -1,0 +1,82 @@
+[
+  {
+    "text": "Which shape completes the rotation series?",
+    "type": "spatial",
+    "skill": "spatial",
+    "difficulty": 1000,
+    "explanation": "The shape rotates 90 degrees clockwise in each step.",
+    "active": true,
+    "imagePath": "/assets/spatial/spatial_q0_1784211120680.png",
+    "imageOptions": [
+      "/assets/spatial/spatial_q0_opt0_1784211120684.png",
+      "/assets/spatial/spatial_q0_opt1_1784211120686.png",
+      "/assets/spatial/spatial_q0_opt2_1784211120687.png",
+      "/assets/spatial/spatial_q0_opt3_1784211120689.png"
+    ],
+    "correctImageIndex": 1
+  },
+  {
+    "text": "Which shape completes the grid pattern?",
+    "type": "spatial",
+    "skill": "spatial",
+    "difficulty": 1000,
+    "explanation": "The radius of the circle increases by a fixed amount in each quadrant.",
+    "active": true,
+    "imagePath": "/assets/spatial/spatial_q1_1784211120691.png",
+    "imageOptions": [
+      "/assets/spatial/spatial_q1_opt0_1784211121149.png",
+      "/assets/spatial/spatial_q1_opt1_1784211121151.png",
+      "/assets/spatial/spatial_q1_opt2_1784211121152.png",
+      "/assets/spatial/spatial_q1_opt3_1784211121154.png"
+    ],
+    "correctImageIndex": 2
+  },
+  {
+    "text": "Which of the following is the correct mirror reflection across the dotted line?",
+    "type": "spatial",
+    "skill": "spatial",
+    "difficulty": 1000,
+    "explanation": "A mirror reflection across a vertical line flips the image horizontally.",
+    "active": true,
+    "imagePath": "/assets/spatial/spatial_q2_1784211121155.png",
+    "imageOptions": [
+      "/assets/spatial/spatial_q2_opt0_1784211121159.png",
+      "/assets/spatial/spatial_q2_opt1_1784211121161.png",
+      "/assets/spatial/spatial_q2_opt2_1784211121162.png",
+      "/assets/spatial/spatial_q2_opt3_1784211121163.png"
+    ],
+    "correctImageIndex": 0
+  },
+  {
+    "text": "Which of the following is the correct mirror reflection across the dotted line?",
+    "type": "spatial",
+    "skill": "spatial",
+    "difficulty": 1100,
+    "explanation": "A mirror reflection across a vertical line flips the image horizontally.",
+    "active": true,
+    "imagePath": "/assets/spatial/spatial_q3_1784211121164.png",
+    "imageOptions": [
+      "/assets/spatial/spatial_q3_opt0_1784211121167.png",
+      "/assets/spatial/spatial_q3_opt1_1784211121168.png",
+      "/assets/spatial/spatial_q3_opt2_1784211121169.png",
+      "/assets/spatial/spatial_q3_opt3_1784211121171.png"
+    ],
+    "correctImageIndex": 0
+  },
+  {
+    "text": "Which shape completes the grid pattern?",
+    "type": "spatial",
+    "skill": "spatial",
+    "difficulty": 1100,
+    "explanation": "The radius of the circle increases by a fixed amount in each quadrant.",
+    "active": true,
+    "imagePath": "/assets/spatial/spatial_q4_1784211121172.png",
+    "imageOptions": [
+      "/assets/spatial/spatial_q4_opt0_1784211121175.png",
+      "/assets/spatial/spatial_q4_opt1_1784211121177.png",
+      "/assets/spatial/spatial_q4_opt2_1784211121178.png",
+      "/assets/spatial/spatial_q4_opt3_1784211121180.png"
+    ],
+    "correctImageIndex": 2
+  }
+]
