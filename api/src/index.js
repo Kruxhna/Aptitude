@@ -13,6 +13,7 @@ const healthRoutes = require('./routes/health');
 const sprintRoutes = require('./routes/sprint');
 const userRoutes = require('./routes/users');
 const leaderboardRoutes = require('./routes/leaderboard');
+const analyticsRoutes = require('./routes/analytics');
 
 const app = express();
 const PORT = process.env.API_PORT || 3000;
@@ -28,6 +29,7 @@ app.use(healthRoutes);
 app.use(sprintRoutes);
 app.use(userRoutes);
 app.use(leaderboardRoutes);
+app.use(analyticsRoutes.router);
 
 // --- Error Handler ---
 app.use((err, req, res, next) => {

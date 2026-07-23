@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { User, Question } = require('../models');
+const { User, Question, QuizSession } = require('../models');
 const engineClient = require('../services/engineClient');
 const redisClient = require('../config/redis');
 const { scoreAnswer } = require('../utils/scorer');
@@ -45,10 +45,12 @@ router.get('/api/sprint', async (req, res, next) => {
       ]);
     }
 
+    const sprintType = type || 'standard';
     const sprintId = `sprint_${req.userId}_${Date.now()}`;
     const sessionData = {
       userId: req.userId.toString(),
       questionIds: questions.map(q => q._id.toString()),
+      sprintType,
       createdAt: Date.now()
     };
 
@@ -194,9 +196,27 @@ router.post('/api/sprint/submit', async (req, res, next) => {
     // Update Redis Leaderboard instantly (high performance)
     await gamification.updateRedisLeaderboard(req.userId, leagueId, engineResponse.xpEarned || 0);
 
-    // Fire-and-forget sync to MongoDB (D-41)
+    // Fire-and-forget sync to MongoDB (D-41) — saves user + QuizSession
+    const sessionSprintType = sessionData.sprintType || 'standard';
     setImmediate(() => {
       user.save().catch(err => console.error('Background Mongo sync error:', err.message));
+      // Save QuizSession for analytics (D-46)
+      const quizSession = new QuizSession({
+        userId: req.userId,
+        sprintType: sessionSprintType,
+        responses: results.map(r => ({
+          questionId: r.questionId,
+          answer: r.userAnswer,
+          correct: r.correct,
+          timeMs: r.timeMs,
+        })),
+        accuracy,
+        totalTimeMs: timeTotalMs,
+        xpEarned: engineResponse.xpEarned || 0,
+        ratingsAfter: engineResponse.newRatings,
+        completedAt: new Date(),
+      });
+      quizSession.save().catch(err => console.error('QuizSession save error:', err.message));
     });
 
     // 6. Calculate summary metrics

@@ -196,6 +196,38 @@ async function run() {
       }
     }
 
+    // 9. Test GET /api/analytics/progress
+    console.log('Testing GET /api/analytics/progress...');
+    const progressRes = await axios.get('http://localhost:3001/api/analytics/progress');
+    if (progressRes.status !== 200 || !progressRes.data.skills) {
+      throw new Error(`GET /api/analytics/progress returned invalid data: ${JSON.stringify(progressRes.data)}`);
+    }
+    const { skills } = progressRes.data;
+    const skillNames = ['verbal', 'quantitative', 'logical', 'spatial'];
+    for (const skill of skillNames) {
+      if (typeof skills[skill]?.elo !== 'number' || typeof skills[skill]?.score !== 'number') {
+        throw new Error(`Missing or invalid skill data for ${skill}: ${JSON.stringify(skills[skill])}`);
+      }
+      if (skills[skill].score < 0 || skills[skill].score > 100) {
+        throw new Error(`Score out of range for ${skill}: ${skills[skill].score}`);
+      }
+    }
+    console.log(`✓ GET /api/analytics/progress passed (verbal: ${skills.verbal.score}/100)`);
+
+    // 10. Test GET /api/analytics/history
+    console.log('Testing GET /api/analytics/history...');
+    const historyRes = await axios.get('http://localhost:3001/api/analytics/history');
+    if (historyRes.status !== 200 || !historyRes.data.history) {
+      throw new Error(`GET /api/analytics/history returned invalid data: ${JSON.stringify(historyRes.data)}`);
+    }
+    const { history } = historyRes.data;
+    for (const skill of skillNames) {
+      if (!Array.isArray(history[skill])) {
+        throw new Error(`Missing history array for skill ${skill}`);
+      }
+    }
+    console.log(`✓ GET /api/analytics/history passed (${history.verbal.length} days recorded for verbal)`);
+
     console.log('\n--- All Integration Tests Passed Successfully! ---');
     cleanup(0);
   } catch (error) {
