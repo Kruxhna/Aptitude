@@ -35,8 +35,8 @@
 
 ### Analytics
 
-- [ ] **ANLT-01**: User can see their current per-skill progress indicator (normalized rating/level)
-- [ ] **ANLT-02**: User can view historical accuracy and speed trend graphs per skill category
+- [x] **ANLT-01**: User can see their current per-skill progress indicator (normalized rating/level)
+- [x] **ANLT-02**: User can view historical accuracy and speed trend graphs per skill category
 
 ### Content
 
@@ -113,8 +113,8 @@
 | GAME-04 | Phase 5 | Pending |
 | GAME-05 | Phase 5 | Pending |
 | GAME-06 | Phase 5 | Pending |
-| ANLT-01 | Phase 6 | Pending |
-| ANLT-02 | Phase 6 | Pending |
+| ANLT-01 | Phase 6 | Complete |
+| ANLT-02 | Phase 6 | Complete |
 
 **Coverage:**
 
