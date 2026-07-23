@@ -103,9 +103,17 @@ async def update_rating(request: UpdateRatingRequest):
         sessions_completed=request.sessionsCompleted
     )
     
-    # Calculate XP (placeholder logic: 10 XP per correct answer)
-    # Full XP with speed bonus will be implemented in Phase 5
-    xp_earned = sum(10 for resp in responses_list if resp.get('correct'))
+    # Calculate XP with speed bonus
+    # Base: 10 XP per correct answer. Speed bonus up to 1.5x for answering under 30s par time.
+    PAR_TIME_MS = 30000
+    xp_earned = 0
+    for resp in responses_list:
+        if resp.get('correct'):
+            time_ms = resp.get('timeMs', PAR_TIME_MS)
+            multiplier = 1.0
+            if time_ms < PAR_TIME_MS:
+                multiplier += max(0.0, (PAR_TIME_MS - time_ms) / PAR_TIME_MS) * 0.5
+            xp_earned += int(10 * multiplier + 0.5)
     
     return {
         "newRatings": new_ratings,

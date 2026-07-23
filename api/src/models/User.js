@@ -20,6 +20,7 @@ const userSchema = new Schema(
     longestStreak: { type: Number, default: 0 },
     streakFreezeAvailable: { type: Boolean, default: true },
     lastSprintDate: { type: Date },
+    leagueId: { type: String, default: null },
     
     // Adaptive metadata
     sessionsCompleted: { type: Number, default: 0 },

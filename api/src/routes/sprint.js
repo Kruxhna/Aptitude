@@ -4,6 +4,7 @@ const { User, Question } = require('../models');
 const engineClient = require('../services/engineClient');
 const redisClient = require('../config/redis');
 const { scoreAnswer } = require('../utils/scorer');
+const gamification = require('../services/gamification');
 
 /**
  * GET /api/sprint
@@ -175,12 +176,28 @@ router.post('/api/sprint/submit', async (req, res, next) => {
       user.sessionsCompleted || 0
     );
 
-    // 5. Update user document in MongoDB
+    // 5. Calculate gamification state and update Redis leaderboard
+    const streakUpdates = gamification.calculateStreakUpdates(user);
+    user.currentStreak = streakUpdates.currentStreak;
+    user.longestStreak = streakUpdates.longestStreak;
+    user.streakFreezeAvailable = streakUpdates.streakFreezeAvailable;
+    user.lastSprintDate = streakUpdates.lastSprintDate;
+
     user.ratings = engineResponse.newRatings;
-    user.totalXp += engineResponse.xpEarned;
+    user.totalXp += engineResponse.xpEarned || 0;
     user.sessionsCompleted = (user.sessionsCompleted || 0) + 1;
-    user.lastSprintDate = new Date();
-    await user.save();
+
+    // Get/Assign static league
+    const leagueId = await gamification.getOrAssignLeague(req.userId, user.leagueId);
+    user.leagueId = leagueId;
+
+    // Update Redis Leaderboard instantly (high performance)
+    await gamification.updateRedisLeaderboard(req.userId, leagueId, engineResponse.xpEarned || 0);
+
+    // Fire-and-forget sync to MongoDB (D-41)
+    setImmediate(() => {
+      user.save().catch(err => console.error('Background Mongo sync error:', err.message));
+    });
 
     // 6. Calculate summary metrics
     const totalQuestions = results.length;
@@ -203,6 +220,14 @@ router.post('/api/sprint/submit', async (req, res, next) => {
       totalCorrect,
       totalQuestions,
       xpEarned: engineResponse.xpEarned || 0,
+      totalXp: user.totalXp,
+      streak: {
+        currentStreak: user.currentStreak,
+        longestStreak: user.longestStreak,
+        streakFreezeAvailable: user.streakFreezeAvailable,
+        streakFreezeUsed: streakUpdates.streakFreezeUsed,
+      },
+      leagueId: user.leagueId,
       timeTotalMs,
       ratingsBefore,
       ratingsAfter: engineResponse.newRatings,

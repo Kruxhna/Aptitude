@@ -155,12 +155,23 @@ async function run() {
       throw new Error(`POST /api/sprint/submit failed with status: ${submitRes.status}`);
     }
 
-    const { accuracy, totalCorrect, xpEarned, ratingDeltas } = submitRes.data;
+    const { accuracy, totalCorrect, xpEarned, ratingDeltas, streak, leagueId } = submitRes.data;
     if (accuracy !== 1 || totalCorrect !== responses.length || xpEarned !== 20) {
       throw new Error(`Invalid submission results: ${JSON.stringify(submitRes.data)}`);
     }
-    console.log(`✓ POST /api/sprint/submit passed (accuracy: ${accuracy}, xpEarned: ${xpEarned})`);
+    if (!streak || streak.currentStreak < 1 || !leagueId) {
+      throw new Error(`Missing gamification data in submit response: ${JSON.stringify(submitRes.data)}`);
+    }
+    console.log(`✓ POST /api/sprint/submit passed (accuracy: ${accuracy}, xpEarned: ${xpEarned}, streak: ${streak.currentStreak}, leagueId: ${leagueId})`);
     console.log(`✓ ELO deltas: ${JSON.stringify(ratingDeltas)}`);
+
+    // 7.5 Test GET /api/leaderboard
+    console.log('Testing GET /api/leaderboard...');
+    const leaderboardRes = await axios.get('http://localhost:3001/api/leaderboard');
+    if (leaderboardRes.status !== 200 || !leaderboardRes.data.leagueId) {
+      throw new Error(`GET /api/leaderboard returned invalid data: ${JSON.stringify(leaderboardRes.data)}`);
+    }
+    console.log(`✓ GET /api/leaderboard passed (leagueId: ${leaderboardRes.data.leagueId})`);
 
     // Verify Redis key deleted
     const redisKeyDeleted = !(await redis.exists(`sprint:${sprintId}`));
