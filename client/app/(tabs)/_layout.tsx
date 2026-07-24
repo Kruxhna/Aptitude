@@ -1,56 +1,55 @@
 import { Tabs } from 'expo-router';
-import { colors } from '../../src/theme';
+import { theme } from '../../src/theme';
+import { SymbolView } from 'expo-symbols';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
+        headerShown: true,
         headerStyle: {
-          backgroundColor: colors.background,
+          backgroundColor: theme.colors.card,
           borderBottomWidth: 1,
-          borderBottomColor: colors.cardBorder,
+          borderBottomColor: theme.colors.border,
         },
-        headerTitleStyle: {
-          color: colors.text,
-          fontWeight: 'bold',
-        },
+        headerTintColor: theme.colors.text,
         tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopColor: colors.cardBorder,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
+          backgroundColor: theme.colors.card,
+          borderTopColor: theme.colors.border,
+          borderTopWidth: 1,
         },
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textMuted,
-      }}
-    >
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textMuted,
+        sceneStyle: {
+          backgroundColor: theme.colors.background,
+        }
+      }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          headerTitle: 'GATE Aptitude',
+          tabBarIcon: ({ color }) => <SymbolView name="house.fill" tintColor={color} />,
         }}
       />
       <Tabs.Screen
         name="sprint"
         options={{
           title: 'Sprint',
-          headerTitle: 'Daily Practice Sprint',
+          tabBarIcon: ({ color }) => <SymbolView name="play.fill" tintColor={color} />,
         }}
       />
       <Tabs.Screen
         name="dashboard"
         options={{
           title: 'Dashboard',
-          headerTitle: 'Performance Analytics',
+          tabBarIcon: ({ color }) => <SymbolView name="chart.bar.fill" tintColor={color} />,
         }}
       />
       <Tabs.Screen
         name="leaderboard"
         options={{
           title: 'Leaderboard',
-          headerTitle: 'Weekly Standings',
+          tabBarIcon: ({ color }) => <SymbolView name="rosette" tintColor={color} />,
         }}
       />
     </Tabs>
