@@ -1,89 +1,63 @@
-import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
-import { colors } from '../theme';
+import React, { useEffect } from 'react';
+import { View, StyleSheet } from 'react-native';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withTiming, 
+  Easing,
+  runOnJS
+} from 'react-native-reanimated';
+import { theme } from '../theme';
 
 interface TimerBarProps {
-  durationSeconds: number;
-  onTimeOut: () => void;
-  isActive: boolean;
+  durationMs: number;
+  onTimeUp: () => void;
+  isPaused?: boolean;
 }
 
-export const TimerBar: React.FC<TimerBarProps> = ({
-  durationSeconds,
-  onTimeOut,
-  isActive,
-}) => {
-  const animValue = useRef(new Animated.Value(1)).current;
-  const isWarning = useRef(false);
+export function TimerBar({ durationMs, onTimeUp, isPaused = false }: TimerBarProps) {
+  const progress = useSharedValue(1);
 
   useEffect(() => {
-    if (!isActive) return;
+    progress.value = 1; // Reset progress
+    
+    if (!isPaused) {
+      progress.value = withTiming(0, {
+        duration: durationMs,
+        easing: Easing.linear,
+      }, (finished) => {
+        if (finished) {
+          runOnJS(onTimeUp)();
+        }
+      });
+    }
 
-    animValue.setValue(1);
-    const durationMs = durationSeconds * 1000;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [durationMs, isPaused]);
 
-    const anim = Animated.timing(animValue, {
-      toValue: 0,
-      duration: durationMs,
-      useNativeDriver: false,
-    });
-
-    const listenerId = animValue.addListener(({ value }) => {
-      if (value <= 0.25 && !isWarning.current) {
-        isWarning.current = true;
-      }
-    });
-
-    anim.start(({ finished }) => {
-      if (finished) {
-        onTimeOut();
-      }
-    });
-
-    return () => {
-      anim.stop();
-      animValue.removeListener(listenerId);
+  const animatedStyle = useAnimatedStyle(() => {
+    const isCritical = progress.value < 0.25;
+    return {
+      width: `${progress.value * 100}%`,
+      backgroundColor: isCritical ? theme.colors.error : theme.colors.primary,
     };
-  }, [durationSeconds, isActive]);
-
-  const widthPercent = animValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
-
-  const barColor = animValue.interpolate({
-    inputRange: [0, 0.25, 0.26, 1],
-    outputRange: [
-      colors.danger,
-      colors.danger,
-      colors.timerNormal,
-      colors.timerNormal,
-    ],
   });
 
   return (
     <View style={styles.container}>
-      <Animated.View
-        style={[
-          styles.bar,
-          {
-            width: widthPercent,
-            backgroundColor: barColor,
-          },
-        ]}
-      />
+      <Animated.View style={[styles.bar, animatedStyle]} />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     height: 6,
-    backgroundColor: colors.cardBorder,
+    backgroundColor: theme.colors.border,
     borderRadius: 3,
     overflow: 'hidden',
     width: '100%',
-    marginVertical: 12,
+    marginVertical: 16,
   },
   bar: {
     height: '100%',
