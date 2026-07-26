@@ -1,21 +1,60 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors } from '../../theme';
+import { SkillPaths, SkillNode } from '../../components/SkillPaths';
+
+const INITIAL_SKILL_NODES: SkillNode[] = [
+  { id: '1', title: 'Numerical Aptitude', status: 'completed', x: 80, y: 50 },
+  { id: '2', title: 'Spatial Aptitude', status: 'active', x: 260, y: 150 },
+  { id: '3', title: 'Verbal Aptitude', status: 'locked', x: 90, y: 270 },
+  { id: '4', title: 'Logical Reasoning', status: 'locked', x: 250, y: 370 },
+];
 
 export default function SprintLauncherScreen() {
   const router = useRouter();
+  const [nodes, setNodes] = useState<SkillNode[]>(INITIAL_SKILL_NODES);
 
   const startSprint = (type: 'quick' | 'standard' | 'deep') => {
     router.push(`/sprint/${type}` as any);
   };
 
+  const handleNodePress = (node: SkillNode) => {
+    if (node.status === 'active') {
+      startSprint('standard');
+    }
+  };
+
+  const unlockNextNode = () => {
+    setNodes((prevNodes) => {
+      const activeIdx = prevNodes.findIndex((n) => n.status === 'active');
+      if (activeIdx !== -1 && activeIdx + 1 < prevNodes.length) {
+        const next = [...prevNodes];
+        next[activeIdx] = { ...next[activeIdx], status: 'completed' };
+        next[activeIdx + 1] = { ...next[activeIdx + 1], status: 'active' };
+        return next;
+      }
+      return prevNodes;
+    });
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.headerTitle}>Daily Practice Sprint</Text>
+      <Text style={styles.headerTitle}>Daily Skill Path</Text>
       <Text style={styles.headerSubtitle}>
-        Difficulty adapts automatically per skill category
+        Interactive path linking Numerical to Spatial Aptitude
       </Text>
+
+      {/* Interactive Skill Path Map */}
+      <View style={styles.pathSection}>
+        <SkillPaths nodes={nodes} onNodePress={handleNodePress} width={340} height={440} />
+        
+        <TouchableOpacity style={styles.unlockDemoButton} onPress={unlockNextNode}>
+          <Text style={styles.unlockDemoText}>Demo: Unlock Next Path Line (800ms Draw)</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={[styles.headerTitle, { marginTop: 24 }]}>Practice Sprint</Text>
 
       <View style={styles.cardContainer}>
         {/* Quick Sprint */}
@@ -79,6 +118,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+    paddingBottom: 60,
   },
   headerTitle: {
     color: colors.text,
@@ -89,14 +129,38 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 14,
     marginTop: 4,
-    marginBottom: 24,
+    marginBottom: 16,
+  },
+  pathSection: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  unlockDemoButton: {
+    backgroundColor: colors.backgroundSelected,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  unlockDemoText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
   },
   cardContainer: {
     gap: 16,
+    marginTop: 16,
   },
   sprintCard: {
     backgroundColor: colors.card,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     padding: 20,

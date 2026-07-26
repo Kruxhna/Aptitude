@@ -5,10 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { api, UserMeResponse, ProgressResponse } from '../../api';
-import { SkillBadge } from '../../components/SkillBadge';
 import { colors } from '../../theme';
 
 export default function HomeScreen() {
@@ -37,74 +38,111 @@ export default function HomeScreen() {
     }
   };
 
-  const skillsList = ['verbal', 'quantitative', 'logical', 'spatial'] as const;
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Top Header Row */}
-      <View style={styles.headerRow}>
-        <View>
-          <Text style={styles.welcomeText}>Welcome back,</Text>
-          <Text style={styles.usernameText}>GATE Aspirant</Text>
+      {/* Top Header Card: TECH BOOST & Mascot & Daily Goal */}
+      <View style={styles.topHeaderCard}>
+        <View style={styles.headerTopRow}>
+          <Text style={styles.techBoostTitle}>TECH BOOST</Text>
+          <TouchableOpacity style={styles.bellButton}>
+            <SymbolView name="bell.fill" size={20} tintColor="#1E293B" />
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.statsBadges}>
-          <View style={styles.badgeItem}>
-            <Text style={styles.badgeIcon}>🔥</Text>
-            <Text style={styles.badgeValue}>{userData?.currentStreak || 1}</Text>
+        <View style={styles.heroRow}>
+          {/* SPRINTY Mascot Floating */}
+          <View style={styles.mascotContainer}>
+            <Image
+              source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
+              style={styles.mascotImage}
+              resizeMode="contain"
+            />
           </View>
 
-          <View style={[styles.badgeItem, styles.xpBadge]}>
-            <Text style={styles.badgeIcon}>⚡</Text>
-            <Text style={styles.badgeValue}>{userData?.totalXp || 0}</Text>
+          {/* Radial Progress Ring Widget */}
+          <View style={styles.goalWidget}>
+            <Text style={styles.goalLabel}>Daily Goal</Text>
+            <View style={styles.ringCircle}>
+              <Text style={styles.ringPercentage}>60%</Text>
+              <Text style={styles.ringSubtext}>COMPLETE</Text>
+              <Text style={styles.xpFraction}>(36/60 XP)</Text>
+            </View>
           </View>
         </View>
       </View>
 
-      {/* Main Daily Sprint Hero CTA */}
-      <View style={styles.heroCard}>
-        <Text style={styles.heroLabel}>TODAY'S GOAL</Text>
-        <Text style={styles.heroTitle}>Daily Adaptive Sprint</Text>
-        <Text style={styles.heroSubtitle}>
-          10 difficulty-matched questions tailored to your current ELO
-        </Text>
+      {/* Skill Paths Section Title */}
+      <Text style={styles.sectionHeaderTitle}>SKILL PATHS</Text>
 
-        <TouchableOpacity
-          style={styles.heroButton}
-          activeOpacity={0.85}
-          onPress={() => router.push('/sprint/standard' as any)}
-        >
-          <Text style={styles.heroButtonText}>Start Sprint →</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Main Grid & Path Line Layout */}
+      <View style={styles.pathGridWrapper}>
+        {/* 2x2 Skill Modules */}
+        <View style={styles.gridContainer}>
+          {/* Data Structures */}
+          <TouchableOpacity
+            style={[styles.skillSquare, { backgroundColor: '#EC4899' }]}
+            activeOpacity={0.85}
+            onPress={() => router.push('/sprint/standard' as any)}
+          >
+            <SymbolView name="flowchart.fill" size={36} tintColor="#FFFFFF" />
+            <Text style={styles.skillCardTitle}>DATA{"\n"}STRUCTURES</Text>
+          </TouchableOpacity>
 
-      {/* Skill Summary Cards */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Skill Mastery Overview</Text>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/dashboard' as any)}>
-          <Text style={styles.seeAllText}>View Dashboard</Text>
-        </TouchableOpacity>
-      </View>
+          {/* System Design */}
+          <TouchableOpacity
+            style={[styles.skillSquare, { backgroundColor: '#3B82F6' }]}
+            activeOpacity={0.85}
+            onPress={() => router.push('/sprint/standard' as any)}
+          >
+            <SymbolView name="square.grid.3x3.fill" size={36} tintColor="#FFFFFF" />
+            <Text style={styles.skillCardTitle}>SYSTEM{"\n"}DESIGN</Text>
+          </TouchableOpacity>
 
-      <View style={styles.skillsGrid}>
-        {skillsList.map(skill => {
-          const prog = progressData?.skills?.[skill] || { elo: 1000, score: 33 };
-          return (
-            <TouchableOpacity
-              key={skill}
-              style={styles.skillCard}
-              activeOpacity={0.8}
-              onPress={() => router.push('/(tabs)/sprint' as any)}
-            >
-              <View style={styles.skillCardHeader}>
-                <SkillBadge skill={skill} size="small" />
-                <Text style={styles.scoreNumber}>{prog.score}/100</Text>
-              </View>
+          {/* Network Security */}
+          <TouchableOpacity
+            style={[styles.skillSquare, { backgroundColor: '#8B5CF6' }]}
+            activeOpacity={0.85}
+            onPress={() => router.push('/sprint/standard' as any)}
+          >
+            <SymbolView name="lock.shield.fill" size={36} tintColor="#FFFFFF" />
+            <Text style={styles.skillCardTitle}>NETWORK{"\n"}SECURITY</Text>
+          </TouchableOpacity>
 
-              <Text style={styles.eloSubtitle}>{prog.elo} ELO Rating</Text>
-            </TouchableOpacity>
-          );
-        })}
+          {/* Operating Systems */}
+          <TouchableOpacity
+            style={[styles.skillSquare, { backgroundColor: '#00C4B4' }]}
+            activeOpacity={0.85}
+            onPress={() => router.push('/sprint/standard' as any)}
+          >
+            <SymbolView name="gearshape.2.fill" size={36} tintColor="#FFFFFF" />
+            <Text style={styles.skillCardTitle}>OPERATING{"\n"}SYSTEMS</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Vertical Path Connection Nodes */}
+        <View style={styles.pathConnectorTrack}>
+          <View style={styles.connectorLine} />
+
+          {/* Node 1 - Completed */}
+          <View style={[styles.pathNode, styles.nodeCompleted]}>
+            <SymbolView name="checkmark" size={14} tintColor="#FFFFFF" />
+          </View>
+
+          {/* Node 2 - Active Glowing Ring */}
+          <View style={[styles.pathNode, styles.nodeActive]}>
+            <View style={styles.activeCoreDot} />
+          </View>
+
+          {/* Node 3 - Completed */}
+          <View style={[styles.pathNode, styles.nodeCompleted]}>
+            <SymbolView name="checkmark" size={14} tintColor="#FFFFFF" />
+          </View>
+
+          {/* Node 4 - Locked */}
+          <View style={[styles.pathNode, styles.nodeLocked]}>
+            <SymbolView name="lock.fill" size={12} tintColor="#94A3B8" />
+          </View>
+        </View>
       </View>
     </ScrollView>
   );
@@ -113,130 +151,170 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#EDF2F7',
   },
   content: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 40,
   },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  topHeaderCard: {
+    backgroundColor: '#E0F2FE',
+    borderRadius: 24,
+    padding: 20,
     marginBottom: 20,
   },
-  welcomeText: {
-    color: colors.textMuted,
-    fontSize: 14,
-  },
-  usernameText: {
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: 'bold',
-  },
-  statsBadges: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  badgeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  xpBadge: {
-    borderColor: colors.warning,
-  },
-  badgeIcon: {
-    fontSize: 12,
-    marginRight: 4,
-  },
-  badgeValue: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: 'bold',
-  },
-  heroCard: {
-    backgroundColor: '#1E1B4B',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    padding: 22,
-    marginBottom: 24,
-  },
-  heroLabel: {
-    color: colors.accent,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 6,
-  },
-  heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: 'bold',
-  },
-  heroSubtitle: {
-    color: colors.textMuted,
-    fontSize: 14,
-    marginTop: 6,
-    marginBottom: 20,
-    lineHeight: 20,
-  },
-  heroButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  heroButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  sectionHeader: {
+  headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: 'bold',
+  techBoostTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: 0.5,
   },
-  seeAllText: {
-    color: colors.accent,
-    fontSize: 13,
-    fontWeight: '600',
+  bellButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  skillsGrid: {
-    gap: 12,
-  },
-  skillCard: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 16,
-  },
-  skillCardHeader: {
+  heroRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  scoreNumber: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: 'bold',
+  mascotContainer: {
+    width: 110,
+    height: 110,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  eloSubtitle: {
-    color: colors.textMuted,
+  mascotImage: {
+    width: 100,
+    height: 100,
+  },
+  goalWidget: {
+    alignItems: 'center',
+  },
+  goalLabel: {
     fontSize: 12,
-    marginTop: 8,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 6,
+  },
+  ringCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 6,
+    borderColor: '#00C4B4',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ringPercentage: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  ringSubtext: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#64748B',
+    marginTop: -2,
+  },
+  xpFraction: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#00C4B4',
+    marginTop: 2,
+  },
+  sectionHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#64748B',
+    letterSpacing: 1,
+    marginBottom: 14,
+  },
+  pathGridWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  gridContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  skillSquare: {
+    width: '47%',
+    aspectRatio: 1,
+    borderRadius: 20,
+    padding: 16,
+    justifyContent: 'space-between',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  skillCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 18,
+    marginTop: 12,
+  },
+  pathConnectorTrack: {
+    width: 44,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: '100%',
+    position: 'relative',
+    marginLeft: 8,
+  },
+  connectorLine: {
+    position: 'absolute',
+    top: 20,
+    bottom: 20,
+    width: 4,
+    backgroundColor: '#CBD5E1',
+    zIndex: 1,
+  },
+  pathNode: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+    marginVertical: 24,
+  },
+  nodeCompleted: {
+    backgroundColor: '#10B981',
+  },
+  nodeActive: {
+    backgroundColor: '#00C4B4',
+    borderWidth: 4,
+    borderColor: '#E0F2FE',
+    shadowColor: '#00C4B4',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  activeCoreDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  nodeLocked: {
+    backgroundColor: '#E2E8F0',
   },
 });

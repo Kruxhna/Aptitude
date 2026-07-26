@@ -6,8 +6,15 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 import { api, LeaderboardResponse } from '../../api';
-import { colors } from '../../theme';
+
+const MOCK_LEADERBOARD_ITEMS = [
+  { rank: 1, name: 'VINEET', xp: 1520, avatar: 'person.crop.circle.fill' },
+  { rank: 2, name: 'PRIYA', xp: 1480, avatar: 'person.crop.circle.fill' },
+  { rank: 3, name: 'ALEX', xp: 1430, avatar: 'person.crop.circle.fill' },
+  { rank: 4, name: 'SIDDHARTH', xp: 1360, avatar: 'person.crop.circle.fill', isUser: true },
+];
 
 export default function LeaderboardScreen() {
   const [loading, setLoading] = useState(true);
@@ -29,66 +36,62 @@ export default function LeaderboardScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.accent} />
-        <Text style={styles.loadingText}>Loading weekly leaderboard...</Text>
-      </View>
-    );
-  }
-
-  const getRankBadge = (rank: number) => {
-    if (rank === 1) return '🥇';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return `#${rank}`;
-  };
+  const leaderboardList = data?.leaderboard && data.leaderboard.length > 0
+    ? data.leaderboard.map((item, idx) => ({
+        rank: item.rank || idx + 1,
+        name: item.userId === '000000000000000000000001' ? 'SIDDHARTH' : `USER ${item.userId.slice(-4).toUpperCase()}`,
+        xp: item.xp,
+        isUser: item.userId === '000000000000000000000001',
+      }))
+    : MOCK_LEADERBOARD_ITEMS;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.leagueBanner}>
-        <Text style={styles.leagueTitle}>Weekly Standings</Text>
-        <Text style={styles.leagueSubtitle}>
-          League: {data?.leagueId || 'Static Group 1'}
-        </Text>
+      {/* Top Hero Banner: TITAN LEAGUE */}
+      <View style={styles.heroCard}>
+        <View style={styles.heroRow}>
+          <View style={styles.diamondBadge}>
+            <SymbolView name="diamond.fill" size={32} tintColor="#8B5CF6" />
+          </View>
+          <Text style={styles.heroTitle}>TITAN LEAGUE</Text>
+        </View>
       </View>
 
-      {data?.userRank && (
-        <View style={styles.userHighlightCard}>
-          <Text style={styles.userHighlightText}>
-            Your Current Standing: Rank #{data.userRank.rank} ({data.userRank.xp} XP)
-          </Text>
-        </View>
-      )}
+      {/* Subtitle Countdown */}
+      <Text style={styles.resetCountdown}>RESET IN 4 DAYS</Text>
 
-      <View style={styles.listCard}>
-        {data?.leaderboard.map((item, idx) => {
-          const isCurrentUser =
-            item.userId === '000000000000000000000001' ||
-            item.userId.includes('user');
+      {/* Leaderboard Rankings List */}
+      <View style={styles.listContainer}>
+        {leaderboardList.map((item, idx) => {
+          const isUser = item.isUser || item.name === 'SIDDHARTH';
 
           return (
             <View
-              key={item.userId || idx}
+              key={idx}
               style={[
                 styles.userRow,
-                isCurrentUser && styles.currentUserRow,
-                idx === (data.leaderboard.length - 1) && styles.lastRow,
+                isUser ? styles.userRowHighlighted : styles.userRowStandard,
               ]}
             >
-              <View style={styles.rankContainer}>
-                <Text style={styles.rankBadge}>{getRankBadge(item.rank)}</Text>
+              <Text style={[styles.rankNumber, isUser && styles.userTextHighlighted]}>
+                {item.rank}.
+              </Text>
+
+              <View style={styles.avatarContainer}>
+                <SymbolView
+                  name="person.crop.circle.fill"
+                  size={28}
+                  tintColor={isUser ? '#FFFFFF' : '#94A3B8'}
+                />
               </View>
 
-              <View style={styles.userInfo}>
-                <Text style={[styles.userName, isCurrentUser && styles.currentUserName]}>
-                  User {item.userId.slice(-6)}
-                  {isCurrentUser ? ' (You)' : ''}
-                </Text>
-              </View>
+              <Text style={[styles.userName, isUser && styles.userTextHighlighted]}>
+                {item.name}
+              </Text>
 
-              <Text style={styles.xpText}>{item.xp} XP</Text>
+              <Text style={[styles.userXp, isUser && styles.userTextHighlighted]}>
+                {item.xp} XP
+              </Text>
             </View>
           );
         })}
@@ -100,102 +103,90 @@ export default function LeaderboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#EDF2F7',
   },
   content: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 40,
   },
-  centerContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
+  heroCard: {
+    backgroundColor: '#EDE9FE',
+    borderRadius: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  diamondBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
-  loadingText: {
-    color: colors.textMuted,
-    marginTop: 12,
-    fontSize: 15,
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: 1,
   },
-  leagueBanner: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 18,
-    marginBottom: 16,
+  resetCountdown: {
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 1,
+    marginBottom: 20,
   },
-  leagueTitle: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  leagueSubtitle: {
-    color: colors.accent,
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  userHighlightCard: {
-    backgroundColor: '#1E1B4B',
-    borderColor: colors.accent,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  userHighlightText: {
-    color: '#818CF8',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  listCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    overflow: 'hidden',
+  listContainer: {
+    gap: 12,
   },
   userRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.cardBorder,
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
   },
-  lastRow: {
-    borderBottomWidth: 0,
+  userRowStandard: {
+    backgroundColor: '#FFFFFF',
   },
-  currentUserRow: {
-    backgroundColor: '#1A2138',
+  userRowHighlighted: {
+    backgroundColor: '#00C4B4', // Vibrant Teal matching reference image
   },
-  rankContainer: {
-    width: 36,
-    alignItems: 'center',
+  rankNumber: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#0F172A',
+    width: 24,
   },
-  rankBadge: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  userInfo: {
-    flex: 1,
-    marginLeft: 12,
+  avatarContainer: {
+    marginHorizontal: 12,
   },
   userName: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '600',
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 0.5,
   },
-  currentUserName: {
-    color: colors.accent,
-    fontWeight: '700',
-  },
-  xpText: {
-    color: colors.warning,
+  userXp: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: '#334155',
+  },
+  userTextHighlighted: {
+    color: '#FFFFFF',
   },
 });
