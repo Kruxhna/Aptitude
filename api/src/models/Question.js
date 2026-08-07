@@ -27,6 +27,32 @@ const questionSchema = new Schema(
     // Stats
     timesAnswered: { type: Number, default: 0 },
     timesCorrect: { type: Number, default: 0 },
+
+    // ── Learn mode scaffolding ───────────────────────────────────
+    // Strategy tip shown before question in Learn mode
+    strategyTip: { type: String, maxlength: 200 },
+    tipDuration: { type: Number, default: 3 }, // seconds to auto-dismiss
+    tipAnimation: {
+      type: String,
+      enum: ['slideUp', 'fadeIn', 'springIn'],
+      default: 'springIn',
+    },
+
+    // Per-option wrong-answer explanations: { "A": "reason...", "B": "reason..." }
+    wrongAnswerExplanations: { type: Map, of: String },
+
+    // Progressive hints (3 levels, each more revealing than the last)
+    hintLevels: {
+      level1: { type: String },
+      level2: { type: String },
+      level3: { type: String },
+    },
+
+    // Reference to the MicroLesson concept this question belongs to
+    conceptId: { type: String, index: true },
+
+    // Par time for speed bonus calculation (overrides hardcoded 30s in engine)
+    parTimeSeconds: { type: Number, default: 30 },
   },
   {
     timestamps: true,
