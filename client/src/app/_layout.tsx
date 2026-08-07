@@ -1,11 +1,54 @@
-import { Stack } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { api } from '../api';
 import { colors } from '../theme';
 
 export default function RootLayout() {
+  const router = useRouter();
+  const segments = useSegments();
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+
+  useEffect(() => {
+    async function checkOnboardingStatus() {
+      try {
+        const status = await api.getOnboardingStatus();
+
+        // Only redirect if user hasn't completed onboarding AND isn't already on an onboarding screen
+        const isOnOnboarding = segments[0] === 'onboarding';
+
+        if (!status.onboardingCompleted && !isOnOnboarding) {
+          if (!status.placementCompleted) {
+            router.replace('/onboarding/placement');
+          } else if (!status.goalsSet) {
+            router.replace('/onboarding/goals');
+          } else {
+            router.replace('/onboarding/tutorial');
+          }
+        }
+      } catch (err) {
+        // If API is down, skip onboarding check — let user use the app
+        console.warn('Onboarding status check failed:', err);
+      } finally {
+        setCheckingOnboarding(false);
+      }
+    }
+
+    checkOnboardingStatus();
+  }, []);
+
+  if (checkingOnboarding) {
+    return (
+      <View style={styles.splash}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
           headerStyle: {
@@ -18,6 +61,7 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen
           name="sprint/[type]"
           options={{ title: 'Daily Sprint', headerBackTitle: 'Cancel' }}
@@ -30,3 +74,12 @@ export default function RootLayout() {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  splash: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+});

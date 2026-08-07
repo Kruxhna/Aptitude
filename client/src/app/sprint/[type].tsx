@@ -3,10 +3,9 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
-  Alert,
   SafeAreaView,
   Image,
+  TouchableOpacity,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, {
@@ -21,7 +20,8 @@ import { api, Question, SprintSession } from '../../api';
 import { QuestionCard } from '../../components/QuestionCard';
 import { TimerBar } from '../../components/TimerBar';
 import { QuizFeedback } from '../../components/QuizFeedback';
-import { colors } from '../../theme';
+import { SpriteAnimator } from '../../components/SpriteAnimator';
+import { colors, duo } from '../../theme';
 
 const PER_QUESTION_TIMERS: Record<string, number> = {
   verbal: 30,
@@ -39,6 +39,7 @@ export default function ActiveSprintScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [streakCount, setStreakCount] = useState(0);
 
   // Feedback banner state
   const [showFeedback, setShowFeedback] = useState(false);
@@ -70,7 +71,7 @@ export default function ActiveSprintScreen() {
       questionStartTime.current = Date.now();
       triggerQuestionEntryAnimation();
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to load sprint questions');
+      // Silently fail, loading state will show
     } finally {
       setLoading(false);
     }
@@ -92,6 +93,7 @@ export default function ActiveSprintScreen() {
       : answer !== 'TIMEOUT';
 
     setIsLastAnswerCorrect(correct);
+    setStreakCount(prev => correct ? prev + 1 : 0);
     setShowFeedback(true);
 
     if (currentQuestion) {
@@ -107,16 +109,15 @@ export default function ActiveSprintScreen() {
     if (selectedAnswer !== null || showFeedback) return;
 
     setSelectedAnswer('TIMEOUT');
-    const timeSpent = timerSeconds * 1000;
-
     setIsLastAnswerCorrect(false);
+    setStreakCount(0);
     setShowFeedback(true);
 
     if (currentQuestion) {
       responsesRef.current.push({
         questionId: currentQuestion._id || currentQuestion.id,
         answer: null,
-        timeMs: timeSpent,
+        timeMs: timerSeconds * 1000,
       });
     }
   };
@@ -128,7 +129,7 @@ export default function ActiveSprintScreen() {
     if (session && currentIndex + 1 < session.questions.length) {
       setCurrentIndex(prev => prev + 1);
       questionStartTime.current = Date.now();
-      triggerQuestionEntryAnimation(); // Trigger horizontal fade-in for next question
+      triggerQuestionEntryAnimation();
     } else {
       finishSprint();
     }
@@ -147,8 +148,7 @@ export default function ActiveSprintScreen() {
         pathname: '/sprint/results' as any,
         params: { data: JSON.stringify(submissionResult) },
       });
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to submit sprint');
+    } catch {
       setSubmitting(false);
     }
   };
@@ -158,36 +158,38 @@ export default function ActiveSprintScreen() {
     transform: [{ translateX: questionTranslateX.value }],
   }));
 
-  // Simple idle hover for loading states
+  // Loading hover animation
   const loadingHoverY = useSharedValue(0);
 
   useEffect(() => {
     if (loading || submitting) {
       loadingHoverY.value = withRepeat(
         withSequence(
-          withTiming(-15, { duration: 1000, easing: Easing.inOut(Easing.sine) }),
-          withTiming(0, { duration: 1000, easing: Easing.inOut(Easing.sine) })
+          withTiming(-15, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
+          withTiming(0, { duration: 1000, easing: Easing.inOut(Easing.sin) })
         ),
-        -1, // infinite loop
-        false // no reverse
+        -1,
+        false
       );
     } else {
       loadingHoverY.value = 0;
     }
   }, [loading, submitting]);
 
-  const loadingAnimatedStyle = useAnimatedStyle(() => ({
+  const loadingAnimStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: loadingHoverY.value }],
   }));
 
+  // ── Loading State ──
   if (loading || !session) {
     return (
       <View style={styles.centerContainer}>
-        <Animated.View style={[styles.loadingRobotContainer, loadingAnimatedStyle]}>
-          <Image
+        <Animated.View style={[styles.loadingRobot, loadingAnimStyle]}>
+          <SpriteAnimator
             source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
-            style={styles.loadingRobotSprite}
-            resizeMode="contain"
+            style={styles.robotSprite}
+            frameCount={4}
+            fps={8}
           />
         </Animated.View>
         <Text style={styles.loadingText}>Fetching next questions...</Text>
@@ -195,14 +197,16 @@ export default function ActiveSprintScreen() {
     );
   }
 
+  // ── Submitting State ──
   if (submitting) {
     return (
       <View style={styles.centerContainer}>
-        <Animated.View style={[styles.loadingRobotContainer, loadingAnimatedStyle]}>
-          <Image
+        <Animated.View style={[styles.loadingRobot, loadingAnimStyle]}>
+          <SpriteAnimator
             source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
-            style={styles.loadingRobotSprite}
-            resizeMode="contain"
+            style={styles.robotSprite}
+            frameCount={4}
+            fps={8}
           />
         </Animated.View>
         <Text style={styles.loadingText}>Scoring sprint results...</Text>
@@ -210,17 +214,40 @@ export default function ActiveSprintScreen() {
     );
   }
 
+  const totalQuestions = session.questions.length;
+  const progressPct = ((currentIndex + 1) / totalQuestions) * 100;
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.progressHeader}>
-        <Text style={styles.progressText}>
-          Question {currentIndex + 1} of {session.questions.length}
-        </Text>
-        <Text style={styles.typeBadge}>
-          {(type || 'standard').toUpperCase()}
-        </Text>
+      {/* ── Duolingo Top Bar: Close + Progress + Hearts ── */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.closeBtn}
+        >
+          <Text style={styles.closeBtnText}>✕</Text>
+        </TouchableOpacity>
+
+        {/* Progress Bar (Duolingo gold) */}
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
+        </View>
+
+        {/* Streak Counter */}
+        {streakCount > 0 && (
+          <View style={styles.streakPill}>
+            <Text style={styles.streakText}>{streakCount} 🔥</Text>
+          </View>
+        )}
+
+        {/* Hearts */}
+        <View style={styles.heartPill}>
+          <Text style={styles.heartIcon}>❤️</Text>
+          <Text style={styles.heartCount}>5</Text>
+        </View>
       </View>
 
+      {/* ── Timer Bar ── */}
       <TimerBar
         key={currentIndex}
         durationSeconds={timerSeconds}
@@ -228,8 +255,9 @@ export default function ActiveSprintScreen() {
         isActive={selectedAnswer === null && !showFeedback}
       />
 
+      {/* ── Question Card ── */}
       {currentQuestion && (
-        <Animated.View style={[styles.questionWrapper, questionAnimatedStyle]}>
+        <Animated.View style={[styles.questionWrap, questionAnimatedStyle]}>
           <QuestionCard
             question={currentQuestion}
             onAnswer={handleAnswerSubmit}
@@ -238,7 +266,7 @@ export default function ActiveSprintScreen() {
         </Animated.View>
       )}
 
-      {/* Quiz Feedback Bottom Banner */}
+      {/* ── Feedback Banner ── */}
       <QuizFeedback
         visible={showFeedback}
         isCorrect={isLastAnswerCorrect}
@@ -256,7 +284,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     padding: 16,
   },
-  questionWrapper: {
+  questionWrap: {
     flex: 1,
     width: '100%',
   },
@@ -271,36 +299,71 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 20,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  loadingRobotContainer: {
+  loadingRobot: {
     width: 100,
     height: 100,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingRobotSprite: {
+  robotSprite: {
     width: 90,
     height: 90,
   },
-  progressHeader: {
+
+  // ── Duolingo Top Bar ──
+  topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 10,
     marginBottom: 4,
   },
-  progressText: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '700',
+  closeBtn: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  typeBadge: {
-    color: colors.accent,
-    fontSize: 12,
+  closeBtnText: {
+    fontSize: 20,
     fontWeight: '700',
-    backgroundColor: '#1E1B4B',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+    color: colors.textMuted,
+  },
+  progressTrack: {
+    flex: 1,
+    height: 16,
+    backgroundColor: colors.cardBorder,
+    borderRadius: duo.radiusProgress,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.duoGold,
+    borderRadius: duo.radiusProgress,
+  },
+  streakPill: {
+    backgroundColor: '#FFF4CC',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: duo.radiusPill,
+  },
+  streakText: {
+    fontSize: duo.fontCaption,
+    fontWeight: '700',
+    color: '#E5B300',
+  },
+  heartPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  heartIcon: {
+    fontSize: 18,
+  },
+  heartCount: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.duoRed,
   },
 });

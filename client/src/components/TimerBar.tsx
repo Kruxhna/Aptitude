@@ -5,62 +5,82 @@ import Animated, {
   useAnimatedStyle, 
   withTiming, 
   Easing,
-  runOnJS
+  runOnJS,
+  interpolateColor,
 } from 'react-native-reanimated';
-import { theme } from '../theme';
+import { colors, duo } from '../theme';
 
 interface TimerBarProps {
-  durationMs: number;
-  onTimeUp: () => void;
+  durationMs?: number;
+  durationSeconds?: number;
+  onTimeUp?: () => void;
+  onTimeOut?: () => void;
   isPaused?: boolean;
+  isActive?: boolean;
 }
 
-export function TimerBar({ durationMs, onTimeUp, isPaused = false }: TimerBarProps) {
+export function TimerBar({ 
+  durationMs, 
+  durationSeconds,
+  onTimeUp, 
+  onTimeOut,
+  isPaused = false,
+  isActive = true,
+}: TimerBarProps) {
   const progress = useSharedValue(1);
 
+  const totalMs = durationMs || (durationSeconds ? durationSeconds * 1000 : 30000);
+  const timeUpCallback = onTimeUp || onTimeOut;
+
   useEffect(() => {
-    progress.value = 1; // Reset progress
+    progress.value = 1;
     
-    if (!isPaused) {
+    const shouldAnimate = !isPaused && isActive;
+    
+    if (shouldAnimate && timeUpCallback) {
       progress.value = withTiming(0, {
-        duration: durationMs,
+        duration: totalMs,
         easing: Easing.linear,
       }, (finished) => {
         if (finished) {
-          runOnJS(onTimeUp)();
+          runOnJS(timeUpCallback)();
         }
       });
     }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [durationMs, isPaused]);
+  }, [totalMs, isPaused, isActive]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    const isCritical = progress.value < 0.25;
+    // Duolingo-style: Gold → Orange → Red as time runs out
+    const bgColor = interpolateColor(
+      progress.value,
+      [0, 0.25, 0.5, 1],
+      [colors.duoRed, colors.duoRed, '#FF9600', colors.duoGold]
+    );
+
     return {
       width: `${progress.value * 100}%`,
-      backgroundColor: isCritical ? theme.colors.error : theme.colors.primary,
+      backgroundColor: bgColor,
     };
   });
 
   return (
-    <View style={styles.container}>
-      <Animated.View style={[styles.bar, animatedStyle]} />
+    <View style={styles.track}>
+      <Animated.View style={[styles.fill, animatedStyle]} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    height: 6,
-    backgroundColor: theme.colors.border,
-    borderRadius: 3,
+  track: {
+    height: 16,
+    backgroundColor: colors.cardBorder,
+    borderRadius: duo.radiusProgress,
     overflow: 'hidden',
     width: '100%',
-    marginVertical: 16,
+    marginVertical: 12,
   },
-  bar: {
+  fill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: duo.radiusProgress,
   },
 });

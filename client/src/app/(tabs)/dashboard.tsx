@@ -4,14 +4,14 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   TouchableOpacity,
   Image,
 } from 'react-native';
-import { SymbolView } from 'expo-symbols';
 import { api, ProgressResponse, HistoryResponse } from '../../api';
 import { ProgressRing } from '../../components/ProgressRing';
 import { TrendChart } from '../../components/TrendChart';
+import { SpriteAnimator } from '../../components/SpriteAnimator';
+import { colors, duo } from '../../theme';
 
 export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,7 @@ export default function DashboardScreen() {
     }
   };
 
-  const weeklyActivityData = [
+  const weeklyActivity = [
     { day: 'Mo', value: 1.2 },
     { day: 'Tu', value: 2.1 },
     { day: 'We', value: 1.8 },
@@ -53,38 +53,41 @@ export default function DashboardScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Profile Header Row */}
-      <View style={styles.profileHeader}>
+      {/* ── Profile Header ── */}
+      <View style={styles.profileRow}>
         <View style={styles.avatarCircle}>
-          <SymbolView name="person.crop.circle.fill" size={54} tintColor="#F59E0B" />
+          <Text style={styles.avatarInitial}>S</Text>
         </View>
-        <Text style={styles.profileName}>Siddharth</Text>
+        <View>
+          <Text style={styles.profileName}>Siddharth</Text>
+          <Text style={styles.profileJoined}>Joined 38 days ago</Text>
+        </View>
       </View>
 
-      {/* Overview Metrics Cards */}
+      {/* ── Stat Cards Row (3D depth) ── */}
       <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Total XP</Text>
-          <Text style={styles.statValue}>12k</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Days Active</Text>
-          <Text style={styles.statValue}>38</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Streak</Text>
-          <Text style={styles.statValue}>42 Days 🔥</Text>
-        </View>
+        {[
+          { label: 'Total XP', value: '12k', emoji: '⚡' },
+          { label: 'Days Active', value: '38', emoji: '📅' },
+          { label: 'Streak', value: '42 🔥', emoji: '' },
+        ].map((stat, idx) => (
+          <View key={idx} style={styles.statCard}>
+            {stat.emoji ? (
+              <Text style={styles.statEmoji}>{stat.emoji}</Text>
+            ) : null}
+            <Text style={styles.statValue}>{stat.value}</Text>
+            <Text style={styles.statLabel}>{stat.label}</Text>
+          </View>
+        ))}
       </View>
 
-      {/* Weekly Activity Bar Chart */}
-      <View style={styles.cardContainer}>
-        <Text style={styles.cardTitleHeader}>WEEKLY ACTIVITY</Text>
-        
-        <View style={styles.chartWrapper}>
-          {weeklyActivityData.map((bar, index) => (
-            <View key={index} style={styles.barItem}>
-              <View style={styles.barBackground}>
+      {/* ── Weekly Activity (3D card) ── */}
+      <View style={styles.card3d}>
+        <Text style={styles.cardTitle}>WEEKLY ACTIVITY</Text>
+        <View style={styles.chartRow}>
+          {weeklyActivity.map((bar, index) => (
+            <View key={index} style={styles.barCol}>
+              <View style={styles.barBg}>
                 <View
                   style={[
                     styles.barFill,
@@ -92,107 +95,83 @@ export default function DashboardScreen() {
                   ]}
                 />
               </View>
-              <Text style={styles.barDayText}>{bar.day}</Text>
+              <Text style={styles.barDay}>{bar.day}</Text>
             </View>
           ))}
         </View>
       </View>
 
-      {/* Topics to Strengthen & Review Action CTA */}
-      <Text style={styles.sectionLabel}>TOPICS TO STRENGTHEN</Text>
+      {/* ── Topics to Strengthen ── */}
+      <Text style={styles.sectionTitle}>TOPICS TO STRENGTHEN</Text>
 
       <View style={styles.strengthenRow}>
-        {/* Needs Focus Column */}
-        <View style={styles.focusColumn}>
-          <View style={styles.topicCard}>
-            <View style={styles.topicHeader}>
-              <Text style={styles.topicLabel}>NEEDS FOCUS:</Text>
-              <Text style={styles.warningIcon}>⚠️</Text>
+        <View style={styles.focusCol}>
+          {['CACHING', 'THREADS'].map((topic) => (
+            <View key={topic} style={styles.focusCard}>
+              <View style={styles.focusHeader}>
+                <Text style={styles.focusLabel}>NEEDS FOCUS</Text>
+                <Text>⚠️</Text>
+              </View>
+              <Text style={styles.focusTopic}>{topic}</Text>
             </View>
-            <Text style={styles.topicTitle}>CACHING</Text>
-          </View>
-
-          <View style={styles.topicCard}>
-            <View style={styles.topicHeader}>
-              <Text style={styles.topicLabel}>NEEDS FOCUS:</Text>
-              <Text style={styles.warningIcon}>⚠️</Text>
-            </View>
-            <Text style={styles.topicTitle}>THREADS</Text>
-          </View>
+          ))}
         </View>
 
-        {/* Start Review Cyan CTA Card */}
-        <TouchableOpacity style={styles.startReviewCard} activeOpacity={0.85}>
-          <SymbolView name="stopwatch.fill" size={32} tintColor="#FFFFFF" />
-          <Text style={styles.startReviewText}>START{"\n"}REVIEW</Text>
-          
-          <View style={styles.reviewMascotWrapper}>
-            <Image
+        <TouchableOpacity style={styles.reviewCta} activeOpacity={0.85}>
+          <Text style={styles.reviewCtaIcon}>⏱</Text>
+          <Text style={styles.reviewCtaText}>START{'\n'}REVIEW</Text>
+          <View style={styles.reviewMascotWrap}>
+            <SpriteAnimator
               source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
-              style={styles.reviewMascotImage}
-              resizeMode="contain"
+              style={styles.reviewMascotImg}
+              frameCount={4}
+              fps={8}
             />
           </View>
         </TouchableOpacity>
       </View>
 
-      {/* Per-Skill Progress Rings Section */}
-      <Text style={[styles.sectionLabel, { marginTop: 24 }]}>PER-SKILL MASTERY</Text>
+      {/* ── Per-Skill Mastery Rings ── */}
+      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>
+        PER-SKILL MASTERY
+      </Text>
       <View style={styles.ringsGrid}>
-        {skillsList.map(skill => {
+        {skillsList.map((skill) => {
           const item = progress?.skills?.[skill] || { elo: 1000, score: 33 };
           return (
             <ProgressRing
               key={skill}
               skill={skill}
-              score={item.score}
-              elo={item.elo}
+              score={item.score ?? 33}
             />
           );
         })}
       </View>
 
-      {/* 30-Day Skill Trends */}
-      <View style={styles.historySection}>
-        <View style={styles.historyHeader}>
-          <Text style={styles.cardTitleHeader}>30-DAY SKILL TRENDS</Text>
+      {/* ── 30-Day Trends ── */}
+      <View style={styles.card3d}>
+        <View style={styles.trendHeader}>
+          <Text style={styles.cardTitle}>30-DAY SKILL TRENDS</Text>
           <View style={styles.modeToggle}>
-            <TouchableOpacity
-              style={[
-                styles.toggleBtn,
-                mode === 'rating' && styles.toggleBtnActive,
-              ]}
-              onPress={() => setMode('rating')}
-            >
-              <Text
-                style={[
-                  styles.toggleText,
-                  mode === 'rating' && styles.toggleTextActive,
-                ]}
+            {(['rating', 'accuracy'] as const).map((m) => (
+              <TouchableOpacity
+                key={m}
+                style={[styles.toggleBtn, mode === m && styles.toggleBtnActive]}
+                onPress={() => setMode(m)}
               >
-                Rating
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.toggleBtn,
-                mode === 'accuracy' && styles.toggleBtnActive,
-              ]}
-              onPress={() => setMode('accuracy')}
-            >
-              <Text
-                style={[
-                  styles.toggleText,
-                  mode === 'accuracy' && styles.toggleTextActive,
-                ]}
-              >
-                Accuracy
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.toggleText,
+                    mode === m && styles.toggleTextActive,
+                  ]}
+                >
+                  {m.charAt(0).toUpperCase() + m.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
-
-        <TrendChart historyData={history?.history || {}} mode={mode} />
+        <TrendChart data={history?.history || {}} metric={mode} />
       </View>
     </ScrollView>
   );
@@ -201,113 +180,135 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EDF2F7',
+    backgroundColor: colors.background,
   },
   content: {
     padding: 16,
     paddingBottom: 40,
   },
-  profileHeader: {
+
+  // ── Profile ──
+  profileRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 14,
     marginBottom: 20,
-    gap: 16,
   },
   avatarCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#FEF3C7',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.duoGold,
     justifyContent: 'center',
     alignItems: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: colors.duoGoldDark,
+  },
+  avatarInitial: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
   },
   profileName: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#0F172A',
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
   },
+  profileJoined: {
+    fontSize: duo.fontCaption,
+    fontWeight: '500',
+    color: colors.textMuted,
+  },
+
+  // ── Stat Cards (3D) ──
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
     gap: 10,
+    marginBottom: 20,
   },
-  statBox: {
+  statCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: duo.radiusCard,
+    borderWidth: 2,
+    borderColor: colors.cardBorder,
+    borderBottomWidth: duo.depthCard + 2,
+    borderBottomColor: '#D5D5D5',
     paddingVertical: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
   },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
+  statEmoji: {
+    fontSize: 18,
     marginBottom: 4,
   },
   statValue: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#0F172A',
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
   },
-  cardContainer: {
+  statLabel: {
+    fontSize: duo.fontSmall,
+    fontWeight: '700',
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+
+  // ── 3D Card ──
+  card3d: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: duo.radiusCard,
+    borderWidth: 2,
+    borderColor: colors.cardBorder,
+    borderBottomWidth: duo.depthCard + 2,
+    borderBottomColor: '#D5D5D5',
     padding: 20,
     marginBottom: 20,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
   },
-  cardTitleHeader: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#64748B',
+  cardTitle: {
+    fontSize: duo.fontCaption,
+    fontWeight: '700',
+    color: colors.textMuted,
     letterSpacing: 1,
     marginBottom: 16,
   },
-  chartWrapper: {
+
+  // ── Weekly Activity ──
+  chartRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     height: 100,
-    paddingTop: 10,
   },
-  barItem: {
+  barCol: {
     alignItems: 'center',
     flex: 1,
   },
-  barBackground: {
+  barBg: {
     width: 14,
     height: 70,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F7F7F7',
     borderRadius: 7,
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
   barFill: {
     width: '100%',
-    backgroundColor: '#00C4B4',
+    backgroundColor: colors.primary,
     borderRadius: 7,
   },
-  barDayText: {
-    fontSize: 11,
+  barDay: {
+    fontSize: duo.fontSmall,
     fontWeight: '700',
-    color: '#64748B',
+    color: colors.textMuted,
     marginTop: 6,
   },
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#64748B',
+
+  // ── Topics to Strengthen ──
+  sectionTitle: {
+    fontSize: duo.fontCaption,
+    fontWeight: '700',
+    color: colors.textMuted,
     letterSpacing: 1,
     marginBottom: 12,
   },
@@ -316,79 +317,78 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 12,
   },
-  focusColumn: {
+  focusCol: {
     flex: 1,
     gap: 10,
   },
-  topicCard: {
+  focusCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: duo.radiusCard,
+    borderWidth: 2,
+    borderColor: colors.cardBorder,
+    borderBottomWidth: duo.depthCard + 2,
+    borderBottomColor: '#D5D5D5',
     padding: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
-  topicHeader: {
+  focusHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4,
   },
-  topicLabel: {
+  focusLabel: {
     fontSize: 10,
-    fontWeight: '800',
-    color: '#EF4444',
+    fontWeight: '700',
+    color: colors.duoRed,
     letterSpacing: 0.5,
   },
-  warningIcon: {
-    fontSize: 12,
-  },
-  topicTitle: {
+  focusTopic: {
     fontSize: 16,
-    fontWeight: '900',
-    color: '#0F172A',
+    fontWeight: '700',
+    color: colors.text,
   },
-  startReviewCard: {
+  reviewCta: {
     flex: 1,
-    backgroundColor: '#00C4B4',
-    borderRadius: 20,
+    backgroundColor: colors.primary,
+    borderRadius: duo.radiusCard,
+    borderBottomWidth: duo.depthCard + 2,
+    borderBottomColor: colors.primaryDark,
     padding: 18,
     justifyContent: 'space-between',
-    position: 'relative',
     overflow: 'hidden',
   },
-  startReviewText: {
+  reviewCtaIcon: {
+    fontSize: 28,
+  },
+  reviewCtaText: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '700',
     lineHeight: 22,
-    marginTop: 12,
+    marginTop: 8,
   },
-  reviewMascotWrapper: {
+  reviewMascotWrap: {
     position: 'absolute',
     right: -10,
     bottom: -10,
     width: 70,
     height: 70,
   },
-  reviewMascotImage: {
+  reviewMascotImg: {
     width: 70,
     height: 70,
   },
+
+  // ── Skills Rings ──
   ringsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 16,
   },
-  historySection: {
-    marginTop: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  historyHeader: {
+
+  // ── Trends ──
+  trendHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -396,8 +396,8 @@ const styles = StyleSheet.create({
   },
   modeToggle: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 8,
+    backgroundColor: '#F7F7F7',
+    borderRadius: duo.radiusProgress,
     padding: 2,
   },
   toggleBtn: {
@@ -406,15 +406,14 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   toggleBtnActive: {
-    backgroundColor: '#00C4B4',
+    backgroundColor: colors.primary,
   },
   toggleText: {
-    color: '#64748B',
+    color: colors.textMuted,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   toggleTextActive: {
     color: '#FFFFFF',
-    fontWeight: '700',
   },
 });

@@ -84,7 +84,7 @@ export function SkillNodeItem({
           ]}
         >
           {isCompleted && (
-            <SymbolView name="checkmark.fill" tintColor="#FFF" size={24} />
+            <SymbolView name="checkmark.circle.fill" tintColor="#FFF" size={24} />
           )}
           {isActive && (
             <SymbolView name="star.fill" tintColor="#FFF" size={26} />

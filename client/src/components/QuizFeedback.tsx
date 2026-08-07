@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,6 +10,7 @@ import Animated, {
   Easing,
   runOnJS,
 } from 'react-native-reanimated';
+import { SpriteAnimator } from './SpriteAnimator';
 import { theme } from '../theme';
 import { SymbolView } from 'expo-symbols';
 
@@ -119,31 +120,35 @@ export function QuizFeedback({
 
   if (!visible) return null;
 
-  const backgroundColor = isCorrect ? '#10B981' : theme.colors.error;
+  const backgroundColor = isCorrect ? theme.colors.duoGreenLight : theme.colors.duoRedLight;
+  const textColor = isCorrect ? theme.colors.duoGreenDark : theme.colors.duoRedDark;
+  const borderColor = isCorrect ? theme.colors.duoGreen : theme.colors.duoRed;
   const titleText = isCorrect ? 'Excellent!' : 'Incorrect';
   const iconName = isCorrect ? 'checkmark.circle.fill' : 'xmark.circle.fill';
 
   return (
     <Animated.View style={[styles.overlayContainer, bannerAnimatedStyle]}>
-      <View style={[styles.bannerCard, { backgroundColor }]}>
+      <View style={[styles.bannerCard, { backgroundColor, borderColor, borderWidth: 2, borderBottomWidth: 5, borderBottomColor: borderColor }]}>
         <View style={styles.contentRow}>
           {/* SPRINTY Robot Icon Performing Jump */}
           <Animated.View style={[styles.robotContainer, robotAnimatedStyle]}>
-            <Image
+            <SpriteAnimator
               source={
                 isCorrect
                   ? require('../../assets/sprites/sprinty_correct_jump_sprite.png')
                   : require('../../assets/sprites/sprinty_idle_hover_sprite.png')
               }
               style={styles.robotSprite}
-              resizeMode="contain"
+              frameCount={4}
+              fps={isCorrect ? 12 : 8}
+              loop={!isCorrect}
             />
           </Animated.View>
 
           <View style={styles.textContainer}>
             <View style={styles.titleRow}>
-              <SymbolView name={iconName} size={28} tintColor="#FFFFFF" />
-              <Text style={styles.titleText}>{titleText}</Text>
+              <SymbolView name={iconName} size={28} tintColor={textColor} />
+              <Text style={[styles.titleText, { color: textColor }]}>{titleText}</Text>
               {isCorrect && xp_gained > 0 && (
                 <View style={styles.xpBadge}>
                   <Text style={styles.xpText}>+{xp_gained} XP</Text>
@@ -159,14 +164,14 @@ export function QuizFeedback({
           </View>
         </View>
 
-        {/* Continue Action Button */}
+        {/* Continue Action Button (Duolingo 3D) */}
         <TouchableOpacity
-          style={[styles.continueButton, isDismissing && { opacity: 0.7 }]}
+          style={[styles.continueButton, isDismissing && { opacity: 0.7 }, { backgroundColor: isCorrect ? theme.colors.duoGreen : theme.colors.duoRed, borderBottomColor: isCorrect ? theme.colors.duoGreenDark : theme.colors.duoRedDark }]}
           activeOpacity={0.8}
           onPress={handleContinue}
           disabled={isDismissing}
         >
-          <Text style={[styles.continueButtonText, { color: backgroundColor }]}>
+          <Text style={styles.continueButtonText}>
             CONTINUE
           </Text>
         </TouchableOpacity>
@@ -247,18 +252,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   continueButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#58CC02',
     borderRadius: 16,
+    borderBottomWidth: 5,
+    borderBottomColor: '#58A700',
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
   },
   continueButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 1,
