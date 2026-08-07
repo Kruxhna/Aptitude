@@ -1,28 +1,52 @@
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
-import { colors } from '../../theme';
+import { colors, duo } from '../../theme';
+
+// ─── Emoji Tab Icons (Duolingo-style flat vector approach) ───
+function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
+  return (
+    <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+      <Text style={[styles.iconEmoji, focused && styles.iconEmojiActive]}>
+        {emoji}
+      </Text>
+    </View>
+  );
+}
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
         headerStyle: {
-          backgroundColor: colors.background,
-          borderBottomWidth: 1,
+          backgroundColor: '#FFFFFF',
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 2,
           borderBottomColor: colors.cardBorder,
         },
         headerTitleStyle: {
           color: colors.text,
-          fontWeight: 'bold',
+          fontWeight: '700',
+          fontSize: 18,
         },
         tabBarStyle: {
-          backgroundColor: colors.card,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 2,
           borderTopColor: colors.cardBorder,
-          height: 60,
+          height: 64,
           paddingBottom: 8,
-          paddingTop: 8,
+          paddingTop: 6,
+          elevation: 0,
+          shadowOpacity: 0,
         },
-        tabBarActiveTintColor: colors.accent,
+        tabBarActiveTintColor: colors.duoBlue,
         tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '700',
+          marginTop: -2,
+        },
       }}
     >
       <Tabs.Screen
@@ -30,29 +54,61 @@ export default function TabLayout() {
         options={{
           title: 'Home',
           headerTitle: 'GATE Aptitude',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="🏠" focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="sprint"
         options={{
           title: 'Sprint',
-          headerTitle: 'Daily Practice Sprint',
-        }}
-      />
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: 'Dashboard',
-          headerTitle: 'Performance Analytics',
+          headerTitle: 'Daily Sprint',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="⚡" focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="leaderboard"
         options={{
-          title: 'Leaderboard',
+          title: 'League',
           headerTitle: 'Weekly Standings',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="🏆" focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: 'Profile',
+          headerTitle: 'Performance',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="📊" focused={focused} />
+          ),
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconWrap: {
+    width: 36,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconWrapActive: {
+    backgroundColor: `${colors.duoBlue}18`,
+  },
+  iconEmoji: {
+    fontSize: 20,
+    opacity: 0.5,
+  },
+  iconEmojiActive: {
+    opacity: 1,
+  },
+});
