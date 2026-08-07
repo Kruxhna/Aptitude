@@ -1,6 +1,3 @@
-Here's a production-ready `README.md` tailored for your project. It balances technical depth with recruiter-friendly storytelling:
-
-```markdown
 # 🚀 GATE Aptitude Trainer
 
 > A gamified, adaptive testing platform for GATE exam preparation — built with the engagement DNA of Duolingo and the precision of an ELO-driven adaptive engine.
@@ -58,6 +55,9 @@ flowchart TB
     style C fill:#f0883e20,stroke:#f0883e,stroke-width:2px,color:#fff
     style D fill:#dc382d20,stroke:#dc382d,stroke-width:2px,color:#fff
     style E fill:#47a24820,stroke:#47a248,stroke-width:2px,color:#fff
+```
+
+> **Note:** the diagram above shows the request path only. There is currently no worker/scheduler tier (see [Known Gaps](#-known-gaps--next-milestones) below) — UTC-midnight streak resets need one.
 
 ### Tech Stack
 
@@ -70,6 +70,8 @@ flowchart TB
 | **Cache & Real-time** | Redis 7.x | Sorted Sets (`ZADD`/`ZREVRANGE`) for weekly leaderboards |
 | **Containerization** | Docker Compose v2.x | Orchestrates all services |
 
+`bullmq` is reserved for the scheduled/worker jobs (streak resets, leaderboard↔history reconciliation) — not yet wired up; see gaps below.
+
 ---
 
 ## 🎮 Core Features
@@ -77,7 +79,7 @@ flowchart TB
 ### Adaptive ELO System
 - **K-factor:** 32 per skill category
 - **Normalization:** Linear mapping to 0–100 mastery scale
-- **Speed Bonus:** 1.0x–1.5x XP multiplier for answers under 30s par time
+- **Speed Bonus:** 1.0x–1.5x XP multiplier for answers under 30s par time (server-side timing validation pending)
 - **Microservice:** Dedicated FastAPI engine for rating calculations
 
 ### Gamification
@@ -252,20 +254,36 @@ npm run test
 
 ## 🗺️ Roadmap
 
+**Spec'd & scaffolded** *(architecture, routes, and schemas defined — hardening still required, see gaps below)*
 - [x] Monorepo scaffolding & Docker setup
-- [x] Python ELO engine
+- [x] Python ELO engine (`/engine/calculate-elo`, `/engine/normalize-scores`)
 - [x] Batch question generation pipeline
-- [x] Daily sprint API
-- [x] Gamification (XP, streaks, leaderboards)
-- [x] React Native client (Expo 52)
-- [ ] Onboarding & placement test
-- [ ] Offline-first question cache
+- [x] Daily sprint API (routing + orchestration)
+- [x] Gamification logic (XP, streaks, leaderboards)
+- [x] React Native client (Expo 52) — design system, home hub, skill paths, leaderboard, dashboard
+
+**Not yet started**
+- [x] Onboarding & placement test
+- [x] Offline-first question cache
 - [ ] Haptics & sound design
 - [ ] Spaced repetition skill decay
 - [ ] Social battles & friend leaderboards
 - [ ] Push notifications
 - [ ] Achievement system
 - [ ] SPRINTY costume unlocks
+
+---
+
+## ⚠️ Known Gaps & Next Milestones
+
+These block a fully trustworthy, production-ready Q&A loop and are tracked ahead of any P1/P2 feature work:
+
+- **Auth is still mock middleware** — no real JWT identity yet, so XP/streak/leaderboard data isn't tied to a verifiable user.
+- **No worker/scheduler tier** — UTC-midnight streak resets and freeze consumption have no cron/queue process (`bullmq` is installed but unused for this).
+- **Redis ↔ Mongo consistency** — leaderboard writes are fire-and-forget to Mongo; no reconciliation job exists if a write is dropped.
+- **No Node → FastAPI resilience contract** — timeout/retry/fallback behavior for the ELO engine call is undefined.
+- **Speed-bonus timing is unvalidated server-side** — the <30s par-time XP multiplier currently trusts client-reported duration.
+- **ELO-band question retrieval is unspecified** — no defined fallback when too few questions exist near a user's rating (notably new users at default ELO).
 
 ---
 
@@ -288,4 +306,5 @@ MIT License — see [LICENSE](LICENSE) for details.
 <p align="center">
   Built with 💚 for GATE aspirants everywhere.<br>
   <em>"Consistency beats intensity. Sprint daily."</em>
+</p>
 </p>
