@@ -41,54 +41,67 @@ def compute_k_factor(sessions_completed: int) -> float:
     return float(max(20.0, 40.0 - (2.0 * sessions_completed)))
 
 def calculate_rating_change(
-    user_rating: float, 
-    question_difficulty: float, 
-    is_correct: bool, 
-    time_ms: int, 
-    skill: str, 
-    sessions_completed: int
+    user_rating: float,
+    question_difficulty: float,
+    is_correct: bool,
+    time_ms: int,
+    skill: str,
+    sessions_completed: int,
+    k_factor_override: float | None = None,
 ) -> float:
-    """Calculate the complete ELO delta."""
+    """Calculate the complete ELO delta.
+
+    Args:
+        k_factor_override: If provided, skips compute_k_factor() and uses this
+            value directly. Used by Learn mode (K=16) to halve ELO impact.
+    """
     expected = expected_score(user_rating, question_difficulty)
     actual = 1.0 if is_correct else 0.0
-    k_factor = compute_k_factor(sessions_completed)
+    k_factor = k_factor_override if k_factor_override is not None else compute_k_factor(sessions_completed)
     speed_mult = calculate_speed_factor(time_ms, skill, is_correct)
-    
+
     # Standard delta
     delta = k_factor * (actual - expected)
-    
+
     # Apply speed multiplier only on gains (correct answers)
     if is_correct and delta > 0:
         delta *= speed_mult
-        
+
     return delta
 
 def update_ratings(
-    current_ratings: Dict[str, float], 
-    responses: List[Dict[str, Any]], 
-    sessions_completed: int
+    current_ratings: Dict[str, float],
+    responses: List[Dict[str, Any]],
+    sessions_completed: int,
+    k_factor_override: float | None = None,
 ) -> Dict[str, float]:
-    """Batch update across multiple responses."""
+    """Batch update ELO ratings across multiple responses.
+
+    Args:
+        k_factor_override: If provided, all responses use this K instead of
+            the dynamic value. Set to 16 for Learn mode sessions.
+    """
     new_ratings = current_ratings.copy()
-    
+
     for resp in responses:
         skill = resp.get('skill')
         if not skill or skill not in new_ratings:
             continue
-            
+
         is_correct = resp.get('correct', False)
         time_ms = resp.get('timeMs', 0)
         q_diff = resp.get('questionDifficulty', 1000.0)
-        
+
         delta = calculate_rating_change(
             user_rating=new_ratings[skill],
             question_difficulty=q_diff,
             is_correct=is_correct,
             time_ms=time_ms,
             skill=skill,
-            sessions_completed=sessions_completed
+            sessions_completed=sessions_completed,
+            k_factor_override=k_factor_override,
         )
-        
+
         new_ratings[skill] += delta
-        
+
     return new_ratings

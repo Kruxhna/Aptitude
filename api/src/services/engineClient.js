@@ -37,16 +37,21 @@ async function calculateNext(userId, skillRatings, questionCount = 10) {
  * @param {Array} responses - Array of response items { questionId, skill, questionDifficulty, answer, correct, timeMs }
  * @param {object} currentRatings - The user's current ELO ratings
  * @param {number} sessionsCompleted - Number of sessions user has completed
+ * @param {number|undefined} kFactorOverride - Optional K-factor override (e.g. 16 for Learn mode)
  * @returns {Promise<object>} The engine's response (new ratings and XP)
  */
-async function updateRating(userId, responses, currentRatings, sessionsCompleted) {
+async function updateRating(userId, responses, currentRatings, sessionsCompleted, kFactorOverride) {
   try {
-    const response = await client.post('/update-rating', {
+    const payload = {
       userId,
       responses,
       currentRatings,
-      sessionsCompleted,
-    });
+      sessionsCompleted: sessionsCompleted || 0,
+    };
+    if (kFactorOverride !== undefined && kFactorOverride !== null) {
+      payload.kFactorOverride = kFactorOverride;
+    }
+    const response = await client.post('/update-rating', payload);
     return response.data;
   } catch (error) {
     console.error('Error calling engine /update-rating:', error.message);
