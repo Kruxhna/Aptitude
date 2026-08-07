@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
+**/node_modules/
 __pycache__/
+**/__pycache__/
 *.pyc
 .pyo
 *.egg-info/
@@ -44,6 +46,7 @@ yarn-error.log*
 
 # Testing
 coverage/
+.pytest_cache/
 
 # Bun
 bun.lock

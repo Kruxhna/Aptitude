@@ -55,6 +55,30 @@ export interface SprintSubmissionResponse {
   [key: string]: any;
 }
 
+// ─── Onboarding Types ──────────────────────────────────────────
+
+export interface OnboardingStatus {
+  placementCompleted: boolean;
+  goalsSet: boolean;
+  onboardingCompleted: boolean;
+}
+
+export interface PlacementQuestion {
+  id: string;
+  skill: string;
+  prompt: string;
+  options: string[];
+  difficulty: number;
+}
+
+export interface PlacementSubmitResponse {
+  message: string;
+  initialElo: Record<string, number>;
+  skillBreakdown: Record<string, { correct: boolean; prompt: string }>;
+  totalCorrect: number;
+  totalQuestions: number;
+}
+
 export const api = {
   getUserMe: async (): Promise<UserMeResponse> => {
     try {
@@ -83,6 +107,38 @@ export const api = {
   getLeaderboard: async () => {
     const response = await apiClient.get(`/leaderboard`);
     return response.data;
-  }
-};
+  },
 
+  // ─── Onboarding ────────────────────────────────────────────
+  getOnboardingStatus: async (): Promise<OnboardingStatus> => {
+    try {
+      const response = await apiClient.get('/onboarding/status');
+      return response.data;
+    } catch {
+      return { placementCompleted: false, goalsSet: false, onboardingCompleted: false };
+    }
+  },
+  startPlacement: async (): Promise<{ sessionId: string }> => {
+    const response = await apiClient.post('/onboarding/placement/start');
+    return response.data;
+  },
+  getPlacementQuestions: async (): Promise<{ questions: PlacementQuestion[]; totalCount: number }> => {
+    const response = await apiClient.get('/onboarding/placement/questions');
+    return response.data;
+  },
+  submitPlacement: async (payload: {
+    sessionId: string;
+    answers: { questionId: string; selectedIndex: number; timeMs?: number }[];
+  }): Promise<PlacementSubmitResponse> => {
+    const response = await apiClient.post('/onboarding/placement/submit', payload);
+    return response.data;
+  },
+  saveGoal: async (dailyGoal: number): Promise<{ ok: boolean }> => {
+    const response = await apiClient.post('/onboarding/goals', { dailyGoal });
+    return response.data;
+  },
+  completeOnboarding: async (): Promise<{ ok: boolean }> => {
+    const response = await apiClient.patch('/onboarding/tutorial/complete');
+    return response.data;
+  },
+};

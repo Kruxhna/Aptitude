@@ -5,11 +5,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SprintSubmissionResponse } from '../../api';
 import { SkillBadge } from '../../components/SkillBadge';
-import { colors } from '../../theme';
+import { SpriteAnimator } from '../../components/SpriteAnimator';
+import { colors, duo } from '../../theme';
 
 export default function SprintResultsScreen() {
   const { data } = useLocalSearchParams<{ data: string }>();
@@ -29,122 +31,180 @@ export default function SprintResultsScreen() {
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>No results data found.</Text>
         <TouchableOpacity
-          style={styles.doneButton}
+          style={styles.doneBtn}
           onPress={() => router.replace('/(tabs)' as any)}
         >
-          <Text style={styles.doneButtonText}>Return to Home</Text>
+          <Text style={styles.doneBtnText}>Return to Home</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   const accuracyPct = Math.round((resultsData.accuracy || 0) * 100);
+  const isGreatScore = accuracyPct >= 80;
+  const isOkScore = accuracyPct >= 50 && accuracyPct < 80;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Hero Summary Card */}
-      <View style={styles.heroCard}>
-        <Text style={styles.heroTitle}>Sprint Complete!</Text>
-        <Text style={styles.accuracyNumber}>{accuracyPct}%</Text>
-        <Text style={styles.heroSubtitle}>
-          {resultsData.totalCorrect} of {resultsData.totalQuestions} Correct
+      {/* ── Hero Card (Duolingo celebration) ── */}
+      <View
+        style={[
+          styles.heroCard,
+          {
+            backgroundColor: isGreatScore
+              ? colors.duoGreenLight
+              : isOkScore
+              ? '#FFF4CC'
+              : colors.duoRedLight,
+            borderColor: isGreatScore
+              ? colors.duoGreen
+              : isOkScore
+              ? colors.duoGold
+              : colors.duoRed,
+            borderBottomColor: isGreatScore
+              ? colors.duoGreenDark
+              : isOkScore
+              ? colors.duoGoldDark
+              : colors.duoRedDark,
+          },
+        ]}
+      >
+        {/* Mascot */}
+        <SpriteAnimator
+          source={
+            isGreatScore
+              ? require('../../../assets/sprites/sprinty_correct_jump_sprite.png')
+              : require('../../../assets/sprites/sprinty_idle_hover_sprite.png')
+          }
+          style={styles.heroMascot}
+          frameCount={4}
+          fps={isGreatScore ? 12 : 8}
+          loop={!isGreatScore}
+        />
+
+        <Text
+          style={[
+            styles.heroTitle,
+            {
+              color: isGreatScore
+                ? colors.duoGreenDark
+                : isOkScore
+                ? colors.duoGoldDark
+                : colors.duoRedDark,
+            },
+          ]}
+        >
+          {isGreatScore
+            ? 'Excellent!'
+            : isOkScore
+            ? 'Good effort!'
+            : 'Keep practicing!'}
         </Text>
 
-        <View style={styles.metricsRow}>
-          <View style={styles.metricItem}>
-            <Text style={styles.metricValue}>+{resultsData.xpEarned}</Text>
-            <Text style={styles.metricLabel}>XP Earned</Text>
-          </View>
+        <Text style={styles.accuracyBig}>{accuracyPct}%</Text>
+        <Text style={styles.heroSub}>
+          {resultsData.totalCorrect} of {resultsData.totalQuestions} Correct
+        </Text>
+      </View>
 
-          <View style={styles.metricDivider} />
-
-          <View style={styles.metricItem}>
-            <Text style={styles.metricValue}>
-              🔥 {resultsData.streak?.currentStreak || 1}
-            </Text>
-            <Text style={styles.metricLabel}>Day Streak</Text>
-          </View>
+      {/* ── XP & Streak Row ── */}
+      <View style={styles.metricsRow}>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricEmoji}>⚡</Text>
+          <Text style={styles.metricValue}>+{resultsData.xpEarned}</Text>
+          <Text style={styles.metricLabel}>XP Earned</Text>
+        </View>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricEmoji}>🔥</Text>
+          <Text style={styles.metricValue}>
+            {resultsData.streak?.currentStreak || 1}
+          </Text>
+          <Text style={styles.metricLabel}>Day Streak</Text>
         </View>
       </View>
 
-      {/* Skill ELO Rating Deltas */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Skill ELO Adjustments</Text>
-        <View style={styles.deltasGrid}>
-          {Object.entries(resultsData.ratingDeltas || {}).map(
-            ([skill, delta]) => {
-              const isPositive = delta > 0;
-              const isNegative = delta < 0;
-              return (
-                <View key={skill} style={styles.deltaCard}>
-                  <SkillBadge skill={skill} size="small" />
-                  <Text
-                    style={[
-                      styles.deltaValue,
-                      isPositive && styles.deltaPositive,
-                      isNegative && styles.deltaNegative,
-                    ]}
-                  >
-                    {isPositive ? `+${delta}` : delta === 0 ? '0' : `${delta}`} ELO
-                  </Text>
-                </View>
-              );
-            }
+      {/* ── Skill ELO Deltas ── */}
+      <Text style={styles.sectionTitle}>SKILL ELO ADJUSTMENTS</Text>
+      <View style={styles.deltasRow}>
+        {Object.entries(resultsData.ratingDeltas || {}).map(
+          ([skill, delta]: [string, any]) => {
+            const numDelta = Number(delta) || 0;
+            const isPositive = numDelta > 0;
+            const isNegative = numDelta < 0;
+            return (
+              <View key={skill} style={styles.deltaCard}>
+                <SkillBadge skill={skill as any} />
+                <Text
+                  style={[
+                    styles.deltaValue,
+                    isPositive && styles.deltaPositive,
+                    isNegative && styles.deltaNegative,
+                  ]}
+                >
+                  {isPositive ? `+${numDelta}` : numDelta === 0 ? '±0' : `${numDelta}`}
+                </Text>
+              </View>
+            );
+          }
+        )}
+      </View>
+
+      {/* ── Answer Review ── */}
+      <Text style={styles.sectionTitle}>ANSWER REVIEW</Text>
+      {resultsData.results.map((item: any, idx: number) => (
+        <View
+          key={idx}
+          style={[
+            styles.reviewCard,
+            {
+              borderLeftWidth: 4,
+              borderLeftColor: item.correct
+                ? colors.duoGreen
+                : colors.duoRed,
+            },
+          ]}
+        >
+          <View style={styles.reviewHeader}>
+            <Text
+              style={[
+                styles.reviewStatus,
+                { color: item.correct ? colors.duoGreenDark : colors.duoRedDark },
+              ]}
+            >
+              {item.correct ? '✓ Correct' : '✗ Incorrect'} (
+              {Math.round(item.timeMs / 1000)}s)
+            </Text>
+            <SkillBadge skill={item.skill || 'verbal'} />
+          </View>
+
+          <Text style={styles.reviewDetail}>
+            <Text style={styles.labelBold}>Your answer: </Text>
+            {String(item.userAnswer ?? 'No response')}
+          </Text>
+
+          {!item.correct && (
+            <Text style={styles.reviewDetail}>
+              <Text style={styles.labelBold}>Correct: </Text>
+              {String(item.correctAnswer)}
+            </Text>
+          )}
+
+          {item.explanation && (
+            <View style={styles.explanationBox}>
+              <Text style={styles.explanationTitle}>Explanation:</Text>
+              <Text style={styles.explanationText}>{item.explanation}</Text>
+            </View>
           )}
         </View>
-      </View>
+      ))}
 
-      {/* Answer Review Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Answer Review</Text>
-        {resultsData.results.map((item, idx) => (
-          <View
-            key={idx}
-            style={[
-              styles.reviewCard,
-              item.correct ? styles.correctBorder : styles.incorrectBorder,
-            ]}
-          >
-            <View style={styles.reviewHeader}>
-              <Text
-                style={[
-                  styles.reviewStatus,
-                  item.correct ? styles.textCorrect : styles.textIncorrect,
-                ]}
-              >
-                {item.correct ? '✓ Correct' : '✗ Incorrect'} ({Math.round(item.timeMs / 1000)}s)
-              </Text>
-              <SkillBadge skill={item.skill || 'verbal'} size="small" />
-            </View>
-
-            <Text style={styles.reviewDetailText}>
-              <Text style={styles.labelBold}>Your answer: </Text>
-              {String(item.userAnswer ?? 'No response')}
-            </Text>
-
-            {!item.correct && (
-              <Text style={styles.reviewDetailText}>
-                <Text style={styles.labelBold}>Correct answer: </Text>
-                {String(item.correctAnswer)}
-              </Text>
-            )}
-
-            {item.explanation && (
-              <View style={styles.explanationBox}>
-                <Text style={styles.explanationTitle}>Explanation:</Text>
-                <Text style={styles.explanationText}>{item.explanation}</Text>
-              </View>
-            )}
-          </View>
-        ))}
-      </View>
-
+      {/* ── Done Button (Duolingo 3D) ── */}
       <TouchableOpacity
-        style={styles.doneButton}
+        style={styles.doneBtn}
         activeOpacity={0.85}
         onPress={() => router.replace('/(tabs)' as any)}
       >
-        <Text style={styles.doneButtonText}>Done</Text>
+        <Text style={styles.doneBtnText}>CONTINUE</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -167,86 +227,101 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    color: colors.danger,
+    color: colors.duoRed,
     fontSize: 16,
     marginBottom: 16,
-  },
-  heroCard: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  heroTitle: {
-    color: colors.textMuted,
-    fontSize: 14,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
   },
-  accuracyNumber: {
-    color: colors.accent,
-    fontSize: 52,
-    fontWeight: 'bold',
-    marginVertical: 4,
-  },
-  heroSubtitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '600',
+
+  // ── Hero Card ──
+  heroCard: {
+    borderRadius: duo.radiusCard,
+    borderWidth: 2,
+    borderBottomWidth: duo.depthButton,
+    padding: 28,
+    alignItems: 'center',
     marginBottom: 20,
   },
-  metricsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    width: '100%',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.cardBorder,
-  },
-  metricItem: {
-    alignItems: 'center',
-  },
-  metricValue: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  metricLabel: {
-    color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  metricDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: colors.cardBorder,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '700',
+  heroMascot: {
+    width: 80,
+    height: 80,
     marginBottom: 12,
   },
-  deltasGrid: {
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  accuracyBig: {
+    fontSize: 52,
+    fontWeight: '700',
+    color: colors.text,
+    marginVertical: 4,
+  },
+  heroSub: {
+    fontSize: duo.fontBody,
+    fontWeight: '700',
+    color: colors.textDark,
+  },
+
+  // ── Metrics Row ──
+  metricsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  metricCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: duo.radiusCard,
+    borderWidth: 2,
+    borderColor: colors.cardBorder,
+    borderBottomWidth: duo.depthCard + 2,
+    borderBottomColor: '#D5D5D5',
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  metricEmoji: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  metricValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  metricLabel: {
+    fontSize: duo.fontSmall,
+    fontWeight: '700',
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+
+  // ── Section ──
+  sectionTitle: {
+    fontSize: duo.fontCaption,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+
+  // ── Deltas ──
+  deltasRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+    marginBottom: 24,
   },
   deltaCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: duo.radiusCard,
+    borderWidth: 2,
     borderColor: colors.cardBorder,
+    borderBottomWidth: duo.depthCard + 2,
+    borderBottomColor: '#D5D5D5',
     padding: 12,
-    width: '48%',
+    width: '47%',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -257,26 +332,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   deltaPositive: {
-    color: colors.success,
+    color: colors.duoGreen,
   },
   deltaNegative: {
-    color: colors.danger,
+    color: colors.duoRed,
   },
+
+  // ── Review Cards ──
   reviewCard: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: duo.radiusCard,
+    borderWidth: 2,
     borderColor: colors.cardBorder,
+    borderBottomWidth: duo.depthCard + 2,
+    borderBottomColor: '#D5D5D5',
     padding: 16,
     marginBottom: 12,
-  },
-  correctBorder: {
-    borderLeftWidth: 4,
-    borderLeftColor: colors.success,
-  },
-  incorrectBorder: {
-    borderLeftWidth: 4,
-    borderLeftColor: colors.danger,
   },
   reviewHeader: {
     flexDirection: 'row',
@@ -288,13 +359,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  textCorrect: {
-    color: colors.success,
-  },
-  textIncorrect: {
-    color: colors.danger,
-  },
-  reviewDetailText: {
+  reviewDetail: {
     color: colors.text,
     fontSize: 14,
     marginTop: 4,
@@ -304,8 +369,8 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   explanationBox: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
+    backgroundColor: colors.backgroundSoft,
+    borderRadius: duo.radiusProgress,
     padding: 10,
     marginTop: 10,
   },
@@ -317,19 +382,24 @@ const styles = StyleSheet.create({
   },
   explanationText: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: duo.fontCaption,
     lineHeight: 18,
   },
-  doneButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 14,
-    padding: 18,
+
+  // ── Done Button (3D) ──
+  doneBtn: {
+    backgroundColor: colors.duoGreen,
+    borderRadius: duo.radiusButton,
+    borderBottomWidth: duo.depthButton,
+    borderBottomColor: colors.duoGreenDark,
+    paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
   },
-  doneButtonText: {
+  doneBtnText: {
     color: '#FFFFFF',
     fontWeight: '700',
-    fontSize: 18,
+    fontSize: 16,
+    letterSpacing: 1,
   },
 });
