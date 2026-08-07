@@ -36,23 +36,60 @@ export interface LeaderboardResponse {
 
 export interface Question {
   id: string;
-  type: string;
-  prompt: string;
+  _id: string;
+  type: 'mcq' | 'numerical' | 'spatial';
+  skill: 'verbal' | 'quantitative' | 'logical' | 'spatial';
+  text: string;
   options?: string[];
-  [key: string]: any;
+  imageOptions?: string[];
+  imagePath?: string;
+  difficulty?: number;
+  parTimeSeconds?: number;
+  // Learn mode fields (present only when mode=learn)
+  strategyTip?: string | null;
+  tipDuration?: number;
+  tipAnimation?: 'slideUp' | 'fadeIn' | 'springIn';
+  hintLevels?: { level1?: string; level2?: string; level3?: string } | null;
+  wrongAnswerExplanations?: Record<string, string> | null;
+  conceptId?: string | null;
 }
 
+export type SprintMode = 'learn' | 'test';
+
 export interface SprintSession {
-  id: string;
+  sprintId: string;
+  type: string;
+  mode: SprintMode;
+  questionCount: number;
   questions: Question[];
-  [key: string]: any;
 }
 
 export interface SprintSubmissionResponse {
-  score?: number;
-  xpEarned?: number;
-  eloDeltas?: Record<string, number>;
-  [key: string]: any;
+  message: string;
+  mode: SprintMode;
+  accuracy: number;
+  totalCorrect: number;
+  totalQuestions: number;
+  xpEarned: number;
+  xpMultiplier: number;
+  xpTotal: number;
+  streak: { current: number; freezesAvailable: number; freezeUsed: boolean };
+  eloBefore: Record<string, number>;
+  eloAfter: Record<string, number>;
+  eloDeltas: Record<string, number>;
+  results: SprintResult[];
+}
+
+export interface SprintResult {
+  questionId: string;
+  correct: boolean;
+  userAnswer: string | number;
+  correctAnswer: string | number;
+  explanation: string;
+  timeMs: number;
+  skill: string;
+  strategyTip?: string | null;
+  wrongAnswerExplanations?: Record<string, string>;
 }
 
 // ─── Onboarding Types ──────────────────────────────────────────
@@ -88,11 +125,11 @@ export const api = {
       return { currentStreak: 5, totalXp: 2450 };
     }
   },
-  getSprint: async (type: string) => {
-    const response = await apiClient.get(`/sprint`, { params: { type } });
+  getSprint: async (type: string, mode: SprintMode = 'test'): Promise<SprintSession> => {
+    const response = await apiClient.get(`/sprint`, { params: { type, mode } });
     return response.data;
   },
-  submitSprint: async (payload: { sprintId: string; answers: any[] }) => {
+  submitSprint: async (payload: { sprintId: string; responses: any[] }): Promise<SprintSubmissionResponse> => {
     const response = await apiClient.post(`/sprint/submit`, payload);
     return response.data;
   },

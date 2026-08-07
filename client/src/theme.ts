@@ -104,3 +104,59 @@ export const theme = {
 };
 
 export default theme;
+
+// ─── Component-level convenience exports ─────────────────────────────────────
+// Imported directly by components that need only a subset of tokens.
+
+/** Short-form color aliases used by new Learn-mode components. */
+export const COLORS = {
+  primary: colors.primary,
+  success: colors.duoGreen,
+  error: colors.duoRed,
+  warning: colors.duoGold,
+
+  // Mode identity colors
+  learnAccent: '#4CAF50',   // Green — Learn mode
+  testAccent: '#FF6B6B',    // Red   — Test mode under pressure
+
+  // Strategy tip
+  tipBackground: '#FFF8E1',
+  tipAccent: '#FF9800',
+
+  // Hint levels (progressively more revealing)
+  hint1: '#E3F2FD',
+  hint2: '#BBDEFB',
+  hint3: '#64B5F6',
+
+  // Micro-lesson background
+  microLesson: '#E8F5E9',
+};
+
+/** Shared border-radius values. */
+export const RADII = {
+  card: duo.radiusCard,        // 12
+  button: duo.radiusButton,    // 16
+  pill: duo.radiusPill,        // 20
+  circle: duo.radiusCircle,    // 999
+};
+
+/** Reanimated spring presets. */
+export const SPRING = {
+  /** Duolingo bounce — signature spring for entrance animations. */
+  bounce: {
+    damping: 10,
+    stiffness: 180,
+    mass: 0.8,
+    overshootClamping: false,
+  },
+  /** Snappy dismissal. */
+  snappy: {
+    damping: 20,
+    stiffness: 300,
+  },
+  /** Gentle expand (e.g., expandable cards). */
+  gentle: {
+    damping: 18,
+    stiffness: 200,
+  },
+};

@@ -15,14 +15,15 @@ router.get('/api/users/me', async (req, res, next) => {
 
     res.json({
       id: user._id,
-      name: user.name,
-      email: user.email,
-      ratings: user.ratings,
-      totalXp: user.totalXp,
-      currentStreak: user.currentStreak,
-      longestStreak: user.longestStreak,
-      streakFreezeAvailable: user.streakFreezeAvailable,
-      lastSprintDate: user.lastSprintDate,
+      displayName: user.displayName,
+      elo: user.elo,
+      xpTotal: user.xpTotal,
+      streak: {
+        current: user.streak.current,
+        freezesAvailable: user.streak.freezesAvailable,
+        lastCompletedUTCDate: user.streak.lastCompletedUTCDate,
+      },
+      learnModeStats: user.learnModeStats,
     });
   } catch (error) {
     next(error);
@@ -41,9 +42,9 @@ router.get('/api/users/stats', async (req, res, next) => {
     }
 
     res.json({
-      ratings: user.ratings,
-      sessionsCompleted: user.sessionsCompleted,
-      // More stats will be added in Phase 5
+      elo: user.elo,
+      xpTotal: user.xpTotal,
+      streak: user.streak,
     });
   } catch (error) {
     next(error);
