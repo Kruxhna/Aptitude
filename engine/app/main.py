@@ -48,6 +48,12 @@ class UpdateRatingRequest(BaseModel):
     currentRatings: SkillRatings
     responses: list[ResponseItem]
     sessionsCompleted: int = Field(default=0)
+    kFactorOverride: Optional[float] = Field(
+        default=None,
+        description="Override the dynamic K-factor. Set to 16 for Learn mode sessions.",
+        ge=1.0,
+        le=64.0,
+    )
 
 
 # --- FastAPI App ---
@@ -100,7 +106,8 @@ async def update_rating(request: UpdateRatingRequest):
     new_ratings = update_ratings(
         current_ratings=current_ratings_dict,
         responses=responses_list,
-        sessions_completed=request.sessionsCompleted
+        sessions_completed=request.sessionsCompleted,
+        k_factor_override=request.kFactorOverride,
     )
     
     # Calculate XP with speed bonus

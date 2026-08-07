@@ -25,7 +25,7 @@ router.get('/api/analytics/progress', async (req, res, next) => {
 
     const skills = {};
     SKILLS.forEach(skill => {
-      const elo = (user.ratings && user.ratings[skill]) || 1000;
+      const elo = (user.elo && user.elo[skill]) || 1000;
       skills[skill] = {
         elo,
         score: normalizeElo(elo),

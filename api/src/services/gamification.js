@@ -24,49 +24,55 @@ function getUtcDayDiff(date1, date2) {
 
 /**
  * Calculate updated streak properties for a user based on current date.
+ * Reads and writes user.streak.* sub-fields per the canonical schema.
  */
 function calculateStreakUpdates(user, currentDate = new Date()) {
-  let currentStreak = user.currentStreak || 0;
-  let longestStreak = user.longestStreak || 0;
-  let streakFreezeAvailable = user.streakFreezeAvailable ?? true;
-  let streakFreezeUsed = false;
+  const streak = user.streak || {};
+  let current = streak.current || 0;
+  let freezesAvailable = streak.freezesAvailable ?? 1;
+  let freezeUsed = false;
 
-  if (!user.lastSprintDate) {
-    currentStreak = 1;
-    longestStreak = Math.max(longestStreak, 1);
+  const lastDateStr = streak.lastCompletedUTCDate; // "YYYY-MM-DD" or null
+
+  if (!lastDateStr) {
+    // First ever sprint
+    current = 1;
   } else {
-    const dayDiff = getUtcDayDiff(new Date(user.lastSprintDate), currentDate);
+    // Parse the stored UTC date string into a Date for diff calculation
+    const lastDate = new Date(`${lastDateStr}T00:00:00Z`);
+    const dayDiff = getUtcDayDiff(lastDate, currentDate);
+
     if (dayDiff === 0) {
-      // Same day
-      if (currentStreak === 0) {
-        currentStreak = 1;
-        longestStreak = Math.max(longestStreak, 1);
-      }
+      // Same UTC day — streak already counted, just ensure ≥ 1
+      if (current === 0) current = 1;
     } else if (dayDiff === 1) {
-      // Next day, increment streak
-      currentStreak = (currentStreak === 0 ? 1 : currentStreak + 1);
-      longestStreak = Math.max(longestStreak, currentStreak);
+      // Consecutive day
+      current = (current === 0 ? 1 : current + 1);
     } else if (dayDiff === 2) {
-      // Missed 1 day
-      if (streakFreezeAvailable) {
-        streakFreezeAvailable = false;
-        streakFreezeUsed = true;
-        // Streak stays preserved
+      // Missed exactly 1 day — use freeze if available
+      if (freezesAvailable > 0) {
+        freezesAvailable -= 1;
+        freezeUsed = true;
+        // Streak preserved, still increment for today
+        current = (current === 0 ? 1 : current + 1);
       } else {
-        currentStreak = 1;
+        current = 1;
       }
     } else {
-      // Missed more than 1 day
-      currentStreak = 1;
+      // Missed 2+ days
+      current = 1;
     }
   }
 
+  const todayUTC = currentDate.toISOString().slice(0, 10); // "YYYY-MM-DD"
+
   return {
-    currentStreak,
-    longestStreak,
-    streakFreezeAvailable,
-    streakFreezeUsed,
-    lastSprintDate: currentDate,
+    // Values to write back to user.streak.*
+    'streak.current': current,
+    'streak.freezesAvailable': freezesAvailable,
+    'streak.lastCompletedUTCDate': todayUTC,
+    // Extra metadata for response
+    freezeUsed,
   };
 }
 
