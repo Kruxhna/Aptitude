@@ -4,17 +4,20 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
 } from 'react-native';
-import { SymbolView } from 'expo-symbols';
 import { api, LeaderboardResponse } from '../../api';
+import { colors, duo } from '../../theme';
 
-const MOCK_LEADERBOARD_ITEMS = [
-  { rank: 1, name: 'VINEET', xp: 1520, avatar: 'person.crop.circle.fill' },
-  { rank: 2, name: 'PRIYA', xp: 1480, avatar: 'person.crop.circle.fill' },
-  { rank: 3, name: 'ALEX', xp: 1430, avatar: 'person.crop.circle.fill' },
-  { rank: 4, name: 'SIDDHARTH', xp: 1360, avatar: 'person.crop.circle.fill', isUser: true },
+const MOCK_LEADERBOARD = [
+  { rank: 1, name: 'VINEET', xp: 1520 },
+  { rank: 2, name: 'PRIYA', xp: 1480 },
+  { rank: 3, name: 'ALEX', xp: 1430 },
+  { rank: 4, name: 'SIDDHARTH', xp: 1360, isUser: true },
+  { rank: 5, name: 'RIYA', xp: 1290 },
+  { rank: 6, name: 'KARAN', xp: 1210 },
 ];
+
+const RANK_MEDALS = ['👑', '🥈', '🥉'];
 
 export default function LeaderboardScreen() {
   const [loading, setLoading] = useState(true);
@@ -29,67 +32,89 @@ export default function LeaderboardScreen() {
       setLoading(true);
       const res = await api.getLeaderboard();
       setData(res);
-    } catch (err) {
-      console.error('Failed to fetch leaderboard:', err);
+    } catch {
+      // fallback to mock
     } finally {
       setLoading(false);
     }
   };
 
-  const leaderboardList = data?.leaderboard && data.leaderboard.length > 0
-    ? data.leaderboard.map((item, idx) => ({
-        rank: item.rank || idx + 1,
-        name: item.userId === '000000000000000000000001' ? 'SIDDHARTH' : `USER ${item.userId.slice(-4).toUpperCase()}`,
-        xp: item.xp,
-        isUser: item.userId === '000000000000000000000001',
-      }))
-    : MOCK_LEADERBOARD_ITEMS;
+  const list =
+    data?.leaderboard && data.leaderboard.length > 0
+      ? data.leaderboard.map((item: any, idx: number) => ({
+          rank: item.rank || idx + 1,
+          name:
+            item.userId === '000000000000000000000001'
+              ? 'SIDDHARTH'
+              : `USER ${(item.userId || '').slice(-4).toUpperCase()}`,
+          xp: item.xp,
+          isUser: item.userId === '000000000000000000000001',
+        }))
+      : MOCK_LEADERBOARD;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Top Hero Banner: TITAN LEAGUE */}
-      <View style={styles.heroCard}>
-        <View style={styles.heroRow}>
-          <View style={styles.diamondBadge}>
-            <SymbolView name="diamond.fill" size={32} tintColor="#8B5CF6" />
-          </View>
-          <Text style={styles.heroTitle}>TITAN LEAGUE</Text>
+      {/* ── League Banner (Duolingo-style) ── */}
+      <View style={styles.leagueBanner}>
+        <Text style={styles.leagueIcon}>🛡️</Text>
+        <View>
+          <Text style={styles.leagueName}>TITAN LEAGUE</Text>
+          <Text style={styles.leagueSub}>Top 10 advance · Reset in 4 days</Text>
         </View>
       </View>
 
-      {/* Subtitle Countdown */}
-      <Text style={styles.resetCountdown}>RESET IN 4 DAYS</Text>
-
-      {/* Leaderboard Rankings List */}
-      <View style={styles.listContainer}>
-        {leaderboardList.map((item, idx) => {
+      {/* ── Leaderboard List ── */}
+      <View style={styles.list}>
+        {list.map((item, idx) => {
           const isUser = item.isUser || item.name === 'SIDDHARTH';
+          const medal = idx < 3 ? RANK_MEDALS[idx] : null;
 
           return (
             <View
               key={idx}
               style={[
-                styles.userRow,
-                isUser ? styles.userRowHighlighted : styles.userRowStandard,
+                styles.row,
+                isUser && styles.rowUser,
+                // 3D depth on each row
+                {
+                  borderBottomWidth: duo.depthCard,
+                  borderBottomColor: isUser ? colors.primaryDark : '#D5D5D5',
+                },
               ]}
             >
-              <Text style={[styles.rankNumber, isUser && styles.userTextHighlighted]}>
-                {item.rank}.
-              </Text>
-
-              <View style={styles.avatarContainer}>
-                <SymbolView
-                  name="person.crop.circle.fill"
-                  size={28}
-                  tintColor={isUser ? '#FFFFFF' : '#94A3B8'}
-                />
+              {/* Rank */}
+              <View style={styles.rankCol}>
+                {medal ? (
+                  <Text style={styles.medal}>{medal}</Text>
+                ) : (
+                  <Text style={[styles.rankNum, isUser && styles.textWhite]}>
+                    {item.rank}
+                  </Text>
+                )}
               </View>
 
-              <Text style={[styles.userName, isUser && styles.userTextHighlighted]}>
+              {/* Avatar */}
+              <View
+                style={[
+                  styles.avatar,
+                  { backgroundColor: isUser ? 'rgba(255,255,255,0.3)' : '#F7F7F7' },
+                ]}
+              >
+                <Text style={styles.avatarText}>
+                  {item.name.charAt(0)}
+                </Text>
+              </View>
+
+              {/* Name */}
+              <Text
+                style={[styles.name, isUser && styles.textWhite]}
+                numberOfLines={1}
+              >
                 {item.name}
               </Text>
 
-              <Text style={[styles.userXp, isUser && styles.userTextHighlighted]}>
+              {/* XP */}
+              <Text style={[styles.xp, isUser && styles.textWhite]}>
                 {item.xp} XP
               </Text>
             </View>
@@ -103,90 +128,101 @@ export default function LeaderboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EDF2F7',
+    backgroundColor: colors.background,
   },
   content: {
     padding: 16,
     paddingBottom: 40,
   },
-  heroCard: {
-    backgroundColor: '#EDE9FE',
-    borderRadius: 24,
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  heroRow: {
+
+  // ── League Banner ──
+  leagueBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-  },
-  diamondBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
     backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  heroTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: 1,
-  },
-  resetCountdown: {
-    textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 1,
+    borderRadius: duo.radiusCard,
+    borderWidth: 2,
+    borderColor: colors.cardBorder,
+    borderBottomWidth: duo.depthCard + 2,
+    borderBottomColor: '#D5D5D5',
+    padding: 20,
     marginBottom: 20,
+    gap: 16,
   },
-  listContainer: {
-    gap: 12,
+  leagueIcon: {
+    fontSize: 40,
   },
-  userRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 20,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-  },
-  userRowStandard: {
-    backgroundColor: '#FFFFFF',
-  },
-  userRowHighlighted: {
-    backgroundColor: '#00C4B4', // Vibrant Teal matching reference image
-  },
-  rankNumber: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#0F172A',
-    width: 24,
-  },
-  avatarContainer: {
-    marginHorizontal: 12,
-  },
-  userName: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
+  leagueName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
     letterSpacing: 0.5,
   },
-  userXp: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#334155',
+  leagueSub: {
+    fontSize: duo.fontCaption,
+    fontWeight: '500',
+    color: colors.textMuted,
+    marginTop: 2,
   },
-  userTextHighlighted: {
+
+  // ── List ──
+  list: {
+    gap: 10,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: duo.radiusCard,
+    borderWidth: 2,
+    borderColor: colors.cardBorder,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  rowUser: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryDark,
+  },
+
+  rankCol: {
+    width: 28,
+    alignItems: 'center',
+  },
+  rankNum: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  medal: {
+    fontSize: 20,
+  },
+
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 12,
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+
+  name: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  xp: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  textWhite: {
     color: '#FFFFFF',
   },
 });

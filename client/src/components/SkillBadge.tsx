@@ -12,7 +12,7 @@ export function SkillBadge({ skill }: SkillBadgeProps) {
 
   return (
     <LinearGradient
-      colors={gradient as unknown as string[]}
+      colors={gradient as any}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
       style={styles.badge}

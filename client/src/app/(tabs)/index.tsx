@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,315 +6,473 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
-import { api, UserMeResponse, ProgressResponse } from '../../api';
-import { colors } from '../../theme';
+import { colors, duo } from '../../theme';
+import { SpriteAnimator } from '../../components/SpriteAnimator';
 
-export default function HomeScreen() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [userData, setUserData] = useState<UserMeResponse | null>(null);
-  const [progressData, setProgressData] = useState<ProgressResponse | null>(null);
+// ─── GATE Aptitude Skill Path Nodes ──────────────────────────
+const SKILL_NODES = [
+  {
+    id: 'node-1',
+    title: 'Algebra & Ratios',
+    category: 'QUANTITATIVE',
+    color: '#FF4B4B',
+    darkColor: '#EA2B2B',
+    status: 'completed' as const,
+    offsetX: 0,
+  },
+  {
+    id: 'node-2',
+    title: 'Data Interpretation',
+    category: 'ANALYTICAL',
+    color: '#1CB0F6',
+    darkColor: '#1899D6',
+    status: 'completed' as const,
+    offsetX: 50,
+  },
+  {
+    id: 'node-3',
+    title: 'Spatial Transforms',
+    category: 'SPATIAL',
+    color: '#FFC800',
+    darkColor: '#E5B300',
+    status: 'active' as const,
+    offsetX: 0,
+  },
+  {
+    id: 'node-4',
+    title: 'Deductive Logic',
+    category: 'LOGICAL',
+    color: '#CE82FF',
+    darkColor: '#A855F7',
+    status: 'locked' as const,
+    offsetX: -50,
+  },
+  {
+    id: 'node-5',
+    title: 'Verbal Grammar',
+    category: 'VERBAL',
+    color: '#58CC02',
+    darkColor: '#58A700',
+    status: 'locked' as const,
+    offsetX: 0,
+  },
+  {
+    id: 'node-6',
+    title: 'Probability & Stats',
+    category: 'QUANTITATIVE',
+    color: '#FF9600',
+    darkColor: '#CD7900',
+    status: 'locked' as const,
+    offsetX: 50,
+  },
+];
 
-  useEffect(() => {
-    fetchHomeData();
-  }, []);
+// ─── 3D Chunky Circle Button (Duolingo's Signature) ──────────
+function ChunkyNode({
+  node,
+  onPress,
+}: {
+  node: (typeof SKILL_NODES)[0];
+  onPress: () => void;
+}) {
+  const [pressed, setPressed] = useState(false);
+  const isLocked = node.status === 'locked';
+  const isActive = node.status === 'active';
+  const isCompleted = node.status === 'completed';
 
-  const fetchHomeData = async () => {
-    try {
-      setLoading(true);
-      const [user, prog] = await Promise.all([
-        api.getUserMe(),
-        api.getProgress(),
-      ]);
-      setUserData(user);
-      setProgressData(prog);
-    } catch (err) {
-      console.error('Failed to fetch home data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const bgColor = isLocked ? '#E5E5E5' : node.color;
+  const shadowColor = isLocked ? '#AFAFAF' : node.darkColor;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Top Header Card: TECH BOOST & Mascot & Daily Goal */}
-      <View style={styles.topHeaderCard}>
-        <View style={styles.headerTopRow}>
-          <Text style={styles.techBoostTitle}>TECH BOOST</Text>
-          <TouchableOpacity style={styles.bellButton}>
-            <SymbolView name="bell.fill" size={20} tintColor="#1E293B" />
-          </TouchableOpacity>
+    <View style={[styles.nodeWrapper, { transform: [{ translateX: node.offsetX }] }]}>
+      {/* "START" tooltip for active node */}
+      {isActive && (
+        <View style={styles.tooltip}>
+          <Text style={styles.tooltipText}>START</Text>
+          <View style={styles.tooltipArrow} />
         </View>
+      )}
 
-        <View style={styles.heroRow}>
-          {/* SPRINTY Mascot Floating */}
-          <View style={styles.mascotContainer}>
-            <Image
-              source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
-              style={styles.mascotImage}
-              resizeMode="contain"
-            />
-          </View>
-
-          {/* Radial Progress Ring Widget */}
-          <View style={styles.goalWidget}>
-            <Text style={styles.goalLabel}>Daily Goal</Text>
-            <View style={styles.ringCircle}>
-              <Text style={styles.ringPercentage}>60%</Text>
-              <Text style={styles.ringSubtext}>COMPLETE</Text>
-              <Text style={styles.xpFraction}>(36/60 XP)</Text>
-            </View>
-          </View>
-        </View>
+      {/* Glowing ring for active */}
+      <View
+        style={[
+          styles.outerRing,
+          isActive && {
+            borderWidth: 4,
+            borderColor: node.color,
+            backgroundColor: `${node.color}22`,
+          },
+        ]}
+      >
+        <Pressable
+          onPressIn={() => !isLocked && setPressed(true)}
+          onPressOut={() => {
+            setPressed(false);
+            if (!isLocked) onPress();
+          }}
+          disabled={isLocked}
+          style={[
+            styles.chunkyCircle,
+            {
+              backgroundColor: bgColor,
+              borderBottomColor: shadowColor,
+              borderBottomWidth: pressed ? 1 : 6,
+              marginTop: pressed ? 5 : 0,
+              opacity: isLocked ? 0.6 : 1,
+            },
+          ]}
+        >
+          {isCompleted ? (
+            <Text style={styles.nodeIcon}>✓</Text>
+          ) : isLocked ? (
+            <Text style={[styles.nodeIcon, { fontSize: 24 }]}>🔒</Text>
+          ) : (
+            <Text style={styles.nodeIcon}>⭐</Text>
+          )}
+        </Pressable>
       </View>
 
-      {/* Skill Paths Section Title */}
-      <Text style={styles.sectionHeaderTitle}>SKILL PATHS</Text>
-
-      {/* Main Grid & Path Line Layout */}
-      <View style={styles.pathGridWrapper}>
-        {/* 2x2 Skill Modules */}
-        <View style={styles.gridContainer}>
-          {/* Data Structures */}
-          <TouchableOpacity
-            style={[styles.skillSquare, { backgroundColor: '#EC4899' }]}
-            activeOpacity={0.85}
-            onPress={() => router.push('/sprint/standard' as any)}
-          >
-            <SymbolView name="flowchart.fill" size={36} tintColor="#FFFFFF" />
-            <Text style={styles.skillCardTitle}>DATA{"\n"}STRUCTURES</Text>
-          </TouchableOpacity>
-
-          {/* System Design */}
-          <TouchableOpacity
-            style={[styles.skillSquare, { backgroundColor: '#3B82F6' }]}
-            activeOpacity={0.85}
-            onPress={() => router.push('/sprint/standard' as any)}
-          >
-            <SymbolView name="square.grid.3x3.fill" size={36} tintColor="#FFFFFF" />
-            <Text style={styles.skillCardTitle}>SYSTEM{"\n"}DESIGN</Text>
-          </TouchableOpacity>
-
-          {/* Network Security */}
-          <TouchableOpacity
-            style={[styles.skillSquare, { backgroundColor: '#8B5CF6' }]}
-            activeOpacity={0.85}
-            onPress={() => router.push('/sprint/standard' as any)}
-          >
-            <SymbolView name="lock.shield.fill" size={36} tintColor="#FFFFFF" />
-            <Text style={styles.skillCardTitle}>NETWORK{"\n"}SECURITY</Text>
-          </TouchableOpacity>
-
-          {/* Operating Systems */}
-          <TouchableOpacity
-            style={[styles.skillSquare, { backgroundColor: '#00C4B4' }]}
-            activeOpacity={0.85}
-            onPress={() => router.push('/sprint/standard' as any)}
-          >
-            <SymbolView name="gearshape.2.fill" size={36} tintColor="#FFFFFF" />
-            <Text style={styles.skillCardTitle}>OPERATING{"\n"}SYSTEMS</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Vertical Path Connection Nodes */}
-        <View style={styles.pathConnectorTrack}>
-          <View style={styles.connectorLine} />
-
-          {/* Node 1 - Completed */}
-          <View style={[styles.pathNode, styles.nodeCompleted]}>
-            <SymbolView name="checkmark" size={14} tintColor="#FFFFFF" />
-          </View>
-
-          {/* Node 2 - Active Glowing Ring */}
-          <View style={[styles.pathNode, styles.nodeActive]}>
-            <View style={styles.activeCoreDot} />
-          </View>
-
-          {/* Node 3 - Completed */}
-          <View style={[styles.pathNode, styles.nodeCompleted]}>
-            <SymbolView name="checkmark" size={14} tintColor="#FFFFFF" />
-          </View>
-
-          {/* Node 4 - Locked */}
-          <View style={[styles.pathNode, styles.nodeLocked]}>
-            <SymbolView name="lock.fill" size={12} tintColor="#94A3B8" />
-          </View>
-        </View>
-      </View>
-    </ScrollView>
+      {/* Label */}
+      <Text style={[styles.nodeTitle, isLocked && styles.nodeTitleLocked]}>
+        {node.title}
+      </Text>
+      <Text style={[styles.nodeCategory, isLocked && styles.nodeTitleLocked]}>
+        {node.category}
+      </Text>
+    </View>
   );
 }
 
+// ─── Home Screen ─────────────────────────────────────────────
+export default function HomeScreen() {
+  const router = useRouter();
+
+  return (
+    <View style={styles.container}>
+      {/* ─── Top Stat Header ─── */}
+      <View style={styles.topBar}>
+        <View style={styles.statPill}>
+          <Text style={styles.statEmoji}>🔥</Text>
+          <Text style={[styles.statNum, { color: '#FF9600' }]}>5</Text>
+        </View>
+        <View style={styles.statPill}>
+          <Text style={styles.statEmoji}>⚡</Text>
+          <Text style={[styles.statNum, { color: '#FFC800' }]}>2,450</Text>
+        </View>
+        <View style={styles.statPill}>
+          <Text style={styles.statEmoji}>🎯</Text>
+          <Text style={[styles.statNum, { color: '#1CB0F6' }]}>1420</Text>
+        </View>
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* ─── Mascot + Speech Bubble ─── */}
+        <View style={styles.mascotRow}>
+          <SpriteAnimator
+            source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
+            style={styles.mascotImg}
+            frameCount={4}
+            fps={8}
+          />
+          <View style={styles.speechBubble}>
+            <Text style={styles.speechText}>
+              Ready for today's{'\n'}GATE sprint?
+            </Text>
+            <View style={styles.speechArrow} />
+          </View>
+        </View>
+
+        {/* ─── Daily Sprint CTA (3D chunky button) ─── */}
+        <View style={styles.sprintCard}>
+          <View style={styles.sprintRow}>
+            <View>
+              <Text style={styles.sprintTag}>DAILY SPRINT</Text>
+              <Text style={styles.sprintTitle}>Personalized Practice</Text>
+            </View>
+          </View>
+
+          {/* Progress bar */}
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: '60%' }]} />
+          </View>
+          <Text style={styles.progressLabel}>60% complete · 36/60 XP today</Text>
+
+          {/* 3D Start Button */}
+          <TouchableOpacity
+            style={styles.startBtn}
+            activeOpacity={0.9}
+            onPress={() => router.push('/sprint/standard' as any)}
+          >
+            <View style={styles.startBtnInner}>
+              <Text style={styles.startBtnText}>START SPRINT</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* ─── Section: Learning Path ─── */}
+        <Text style={styles.sectionHeader}>LEARNING PATH</Text>
+
+        {/* ─── Zig-Zag Skill Path ─── */}
+        <View style={styles.pathContainer}>
+          {/* Vertical connector track */}
+          <View style={styles.verticalTrack} />
+
+          {SKILL_NODES.map((node) => (
+            <ChunkyNode
+              key={node.id}
+              node={node}
+              onPress={() => router.push('/sprint/standard' as any)}
+            />
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EDF2F7',
+    backgroundColor: colors.background,
   },
-  content: {
-    padding: 16,
+
+  // ── Top Bar ──
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 2,
+    borderBottomColor: colors.cardBorder,
+  },
+  statPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statEmoji: {
+    fontSize: 18,
+  },
+  statNum: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+
+  scrollContent: {
+    padding: 20,
     paddingBottom: 40,
   },
-  topHeaderCard: {
-    backgroundColor: '#E0F2FE',
-    borderRadius: 24,
-    padding: 20,
+
+  // ── Mascot + Speech Bubble ──
+  mascotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 20,
   },
-  headerTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+  mascotImg: {
+    width: 80,
+    height: 80,
   },
-  techBoostTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: 0.5,
-  },
-  bellButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  heroRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  mascotContainer: {
-    width: 110,
-    height: 110,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mascotImage: {
-    width: 100,
-    height: 100,
-  },
-  goalWidget: {
-    alignItems: 'center',
-  },
-  goalLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
-    marginBottom: 6,
-  },
-  ringCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 6,
-    borderColor: '#00C4B4',
+  speechBubble: {
     backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.cardBorder,
+    borderRadius: duo.radiusCard,
+    padding: 14,
+    marginLeft: 12,
+    flex: 1,
+    position: 'relative',
   },
-  ringPercentage: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  ringSubtext: {
-    fontSize: 8,
-    fontWeight: '800',
-    color: '#64748B',
-    marginTop: -2,
-  },
-  xpFraction: {
-    fontSize: 9,
+  speechText: {
+    fontSize: 15,
     fontWeight: '700',
-    color: '#00C4B4',
-    marginTop: 2,
+    color: colors.text,
+    lineHeight: 22,
   },
-  sectionHeaderTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#64748B',
-    letterSpacing: 1,
+  speechArrow: {
+    position: 'absolute',
+    left: -8,
+    top: 18,
+    width: 0,
+    height: 0,
+    borderTopWidth: 8,
+    borderBottomWidth: 8,
+    borderRightWidth: 8,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderRightColor: colors.cardBorder,
+  },
+
+  // ── Sprint Card ──
+  sprintCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: duo.radiusCard,
+    borderWidth: 2,
+    borderColor: colors.cardBorder,
+    borderBottomWidth: duo.depthCard + 2,
+    borderBottomColor: '#D5D5D5',
+    padding: 20,
+    marginBottom: 28,
+  },
+  sprintRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 14,
   },
-  pathGridWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  sprintTag: {
+    fontSize: duo.fontSmall,
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: 1,
   },
-  gridContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  sprintTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 2,
   },
-  skillSquare: {
-    width: '47%',
-    aspectRatio: 1,
-    borderRadius: 20,
-    padding: 16,
-    justifyContent: 'space-between',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+  progressTrack: {
+    height: 16,
+    backgroundColor: colors.cardBorder,
+    borderRadius: duo.radiusProgress,
+    overflow: 'hidden',
+    marginBottom: 6,
   },
-  skillCardTitle: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 18,
-    marginTop: 12,
-  },
-  pathConnectorTrack: {
-    width: 44,
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  progressFill: {
     height: '100%',
+    backgroundColor: colors.duoGold,
+    borderRadius: duo.radiusProgress,
+  },
+  progressLabel: {
+    fontSize: duo.fontSmall,
+    fontWeight: '700',
+    color: colors.textMuted,
+    marginBottom: 16,
+  },
+  startBtn: {
+    borderRadius: duo.radiusButton,
+    overflow: 'hidden',
+  },
+  startBtnInner: {
+    backgroundColor: colors.duoGreen,
+    paddingVertical: 14,
+    borderRadius: duo.radiusButton,
+    alignItems: 'center',
+    borderBottomWidth: duo.depthButton,
+    borderBottomColor: colors.duoGreenDark,
+  },
+  startBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+
+  // ── Section Header ──
+  sectionHeader: {
+    fontSize: duo.fontCaption,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 1.5,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+
+  // ── Zig-Zag Path ──
+  pathContainer: {
+    alignItems: 'center',
     position: 'relative',
-    marginLeft: 8,
+    paddingVertical: 10,
   },
-  connectorLine: {
+  verticalTrack: {
     position: 'absolute',
-    top: 20,
-    bottom: 20,
-    width: 4,
-    backgroundColor: '#CBD5E1',
-    zIndex: 1,
+    top: 40,
+    bottom: 40,
+    width: 8,
+    backgroundColor: colors.cardBorder,
+    borderRadius: 4,
   },
-  pathNode: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+
+  // ── Node ──
+  nodeWrapper: {
+    alignItems: 'center',
+    marginVertical: 14,
+    position: 'relative',
+  },
+  tooltip: {
+    position: 'absolute',
+    top: -34,
+    backgroundColor: colors.duoGreen,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: duo.radiusCard,
+    zIndex: 10,
+  },
+  tooltipText: {
+    color: '#FFFFFF',
+    fontSize: duo.fontSmall,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  tooltipArrow: {
+    position: 'absolute',
+    bottom: -6,
+    alignSelf: 'center',
+    left: '50%',
+    marginLeft: -6,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 6,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: colors.duoGreen,
+  },
+  outerRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 2,
-    marginVertical: 24,
   },
-  nodeCompleted: {
-    backgroundColor: '#10B981',
+  chunkyCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderBottomWidth: 6,
   },
-  nodeActive: {
-    backgroundColor: '#00C4B4',
-    borderWidth: 4,
-    borderColor: '#E0F2FE',
-    shadowColor: '#00C4B4',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 6,
+  nodeIcon: {
+    fontSize: 28,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
-  activeCoreDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FFFFFF',
+  nodeTitle: {
+    marginTop: 6,
+    fontSize: duo.fontCaption,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
   },
-  nodeLocked: {
-    backgroundColor: '#E2E8F0',
+  nodeCategory: {
+    fontSize: duo.fontSmall,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  nodeTitleLocked: {
+    color: colors.textMuted,
   },
 });
