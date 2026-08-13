@@ -34,6 +34,12 @@ export interface LeaderboardResponse {
   [key: string]: any;
 }
 
+export interface UserPreferences {
+  hapticsEnabled: boolean;
+  soundEnabled: boolean;
+  soundVolume: number; // 0–100
+}
+
 export interface Question {
   id: string;
   _id: string;
@@ -176,6 +182,25 @@ export const api = {
   },
   completeOnboarding: async (): Promise<{ ok: boolean }> => {
     const response = await apiClient.patch('/onboarding/tutorial/complete');
+    return response.data;
+  },
+
+  // ─── User Preferences ──────────────────────────────────────
+  getPreferences: async (): Promise<{ preferences: UserPreferences }> => {
+    try {
+      const response = await apiClient.get('/users/preferences');
+      return response.data;
+    } catch {
+      // Offline fallback — return sensible defaults
+      return {
+        preferences: { hapticsEnabled: true, soundEnabled: true, soundVolume: 70 },
+      };
+    }
+  },
+  updatePreferences: async (
+    patch: Partial<UserPreferences>
+  ): Promise<{ preferences: UserPreferences }> => {
+    const response = await apiClient.put('/users/preferences', patch);
     return response.data;
   },
 };
