@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { User, Question, QuizSession } = require('../models');
+const { User, Question, QuizSession, Friend } = require('../models');
 const engineClient = require('../services/engineClient');
 const redisClient = require('../config/redis');
 const { scoreAnswer } = require('../utils/scorer');
 const gamification = require('../services/gamification');
+const leagueService = require('../services/leagueService');
 
 const VALID_SPRINT_TYPES = new Set(['quick', 'standard', 'deep']);
 const VALID_MODES = new Set(['learn', 'test']);
@@ -215,10 +216,34 @@ router.post('/api/sprint/submit', async (req, res, next) => {
 
     user.elo = engineResponse.newRatings;
     user.xpTotal = (user.xpTotal || 0) + xpEarned;
+    user.weeklyXP = (user.weeklyXP || 0) + xpEarned;
 
-    // Leaderboard — league is Redis-only
+    // Leaderboard — league is Redis-only (existing global leaderboard)
     const leagueId = await gamification.getOrAssignLeague(req.userId);
     await gamification.updateRedisLeaderboard(req.userId, leagueId, xpEarned);
+
+    // Social leaderboards — fire-and-forget
+    setImmediate(async () => {
+      try {
+        // Update league-tier ZSET
+        const tier = user.currentLeague || 'Bronze';
+        await leagueService.updateLeagueZSET(req.userId, tier, xpEarned);
+
+        // Update friend leaderboards — find accepted friend IDs
+        const friendDocs = await Friend.find({
+          $or: [
+            { userId: req.userId, status: 'accepted' },
+            { friendId: req.userId, status: 'accepted' },
+          ],
+        }, 'userId friendId');
+        const friendIds = friendDocs.map(f =>
+          f.userId.toString() === req.userId.toString() ? f.friendId : f.userId
+        );
+        await leagueService.updateFriendLeaderboards(req.userId, friendIds, xpEarned);
+      } catch (err) {
+        console.warn('[Sprint] Social leaderboard update failed:', err.message);
+      }
+    });
 
     // 6. Summary metrics
     const totalQuestions = results.length;
