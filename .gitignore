@@ -50,3 +50,7 @@ coverage/
 
 # Bun
 bun.lock
+
+# Assets
+assets/
+client/assets/

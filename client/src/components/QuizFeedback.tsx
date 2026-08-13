@@ -13,6 +13,7 @@ import Animated, {
 import { SpriteAnimator } from './SpriteAnimator';
 import { theme } from '../theme';
 import { SymbolView } from 'expo-symbols';
+import { useFeedback } from '../services/FeedbackProvider';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -32,16 +33,17 @@ export function QuizFeedback({
   onContinue,
 }: QuizFeedbackProps) {
   // Banner animations
-  const translateY = useSharedValue(300); // Initial offset below screen (+100%)
+  const translateY = useSharedValue(300);
   const translateX = useSharedValue(0);
   const scale = useSharedValue(1);
-  
+
   // SPRINTY Robot jump animations
   const robotTranslateY = useSharedValue(0);
   const robotScaleX = useSharedValue(1);
   const robotScaleY = useSharedValue(1);
 
   const [isDismissing, setIsDismissing] = useState(false);
+  const { feedback } = useFeedback();
 
   useEffect(() => {
     if (visible) {
@@ -51,14 +53,28 @@ export function QuizFeedback({
       scale.value = 1;
       translateY.value = 300;
 
-      // Slide up from bottom with custom spring / Duolingo bounce ease
+      // Slide up from bottom with Duolingo bounce spring
       translateY.value = withSpring(0, {
         stiffness: 300,
         damping: 15,
       });
 
-      // SPRINTY celebratory jump animation on correct answer
+      // ── Multimodal feedback ─────────────────────────────────────────────
       if (isCorrect) {
+        // Haptics: heavy impact + success notification (100ms apart)
+        feedback.haptics.correctAnswerCombo();
+        // Audio: pop sound + mascot jump sound
+        feedback.audio.correct();
+        feedback.audio.mascotJump();
+        // Accessibility: announce after a brief delay so VoiceOver doesn't
+        // compete with the banner slide-up animation
+        setTimeout(() => {
+          feedback.announce(
+            `Correct! Well done.${xp_gained > 0 ? ` Plus ${xp_gained} XP.` : ''}`
+          );
+        }, 300);
+
+        // SPRINTY jump animation
         robotTranslateY.value = withDelay(
           100,
           withSequence(
@@ -68,7 +84,6 @@ export function QuizFeedback({
             withTiming(0, { duration: 150, easing: Easing.in(Easing.quad) })
           )
         );
-        // Squash and stretch during leap
         robotScaleY.value = withDelay(
           100,
           withSequence(
@@ -77,6 +92,18 @@ export function QuizFeedback({
             withTiming(1.0, { duration: 150 })
           )
         );
+      } else {
+        // Haptics: double heavy tap for failure
+        feedback.haptics.failureDoubleTap();
+        // Audio: descending wrong tone
+        feedback.audio.wrong();
+        // Accessibility: announce the correct answer
+        const correctText = explanation
+          ? `Incorrect. ${explanation}`
+          : 'Incorrect. The correct answer is shown.';
+        setTimeout(() => {
+          feedback.announce(correctText);
+        }, 300);
       }
     } else {
       translateY.value = 300;
@@ -86,6 +113,8 @@ export function QuizFeedback({
   const handleContinue = () => {
     if (isDismissing) return;
     setIsDismissing(true);
+    feedback.haptics.mediumTap();
+    feedback.audio.buttonTap();
 
     // Rapidly slide right and scale down to 0, then invoke callback
     translateX.value = withTiming(SCREEN_WIDTH, {
@@ -170,6 +199,10 @@ export function QuizFeedback({
           activeOpacity={0.8}
           onPress={handleContinue}
           disabled={isDismissing}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Continue to next question"
+          accessibilityState={{ disabled: isDismissing }}
         >
           <Text style={styles.continueButtonText}>
             CONTINUE

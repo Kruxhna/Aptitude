@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Tabs } from 'expo-router';
 import { colors, duo } from '../../theme';
+import { useFeedback } from '../../services/FeedbackProvider';
 
 // ─── Emoji Tab Icons (Duolingo-style flat vector approach) ───
 function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
@@ -11,6 +12,20 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
         {emoji}
       </Text>
     </View>
+  );
+}
+
+/** Wrapper that fires a light haptic tap on every tab press. */
+function HapticTabButton(props: any) {
+  const { feedback } = useFeedback();
+  return (
+    <Pressable
+      {...props}
+      onPress={(e) => {
+        feedback.haptics.lightTap();
+        props.onPress?.(e);
+      }}
+    />
   );
 }
 
@@ -47,6 +62,7 @@ export default function TabLayout() {
           fontWeight: '700',
           marginTop: -2,
         },
+        tabBarButton: HapticTabButton,
       }}
     >
       <Tabs.Screen
@@ -57,6 +73,7 @@ export default function TabLayout() {
           tabBarIcon: ({ focused }) => (
             <TabIcon emoji="🏠" focused={focused} />
           ),
+          tabBarAccessibilityLabel: 'Home tab',
         }}
       />
       <Tabs.Screen
@@ -67,6 +84,7 @@ export default function TabLayout() {
           tabBarIcon: ({ focused }) => (
             <TabIcon emoji="⚡" focused={focused} />
           ),
+          tabBarAccessibilityLabel: 'Sprint tab',
         }}
       />
       <Tabs.Screen
@@ -77,6 +95,7 @@ export default function TabLayout() {
           tabBarIcon: ({ focused }) => (
             <TabIcon emoji="🏆" focused={focused} />
           ),
+          tabBarAccessibilityLabel: 'League tab',
         }}
       />
       <Tabs.Screen
@@ -87,6 +106,18 @@ export default function TabLayout() {
           tabBarIcon: ({ focused }) => (
             <TabIcon emoji="📊" focused={focused} />
           ),
+          tabBarAccessibilityLabel: 'Profile tab',
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          headerTitle: 'Settings',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon emoji="⚙️" focused={focused} />
+          ),
+          tabBarAccessibilityLabel: 'Settings tab',
         }}
       />
     </Tabs>

@@ -21,6 +21,12 @@ const userSchema = new Schema({
   placementCompleted: { type: Boolean, default: false },
   dailyGoal: { type: Number, enum: [10, 20, 30], default: 20 },
   dailyXPTarget: { type: Number, default: 50 },
+  // User preferences (synced from client)
+  preferences: {
+    hapticsEnabled: { type: Boolean, default: true },
+    soundEnabled: { type: Boolean, default: true },
+    soundVolume: { type: Number, default: 70, min: 0, max: 100 },
+  },
   createdAt: { type: Date, default: Date.now },
 });
 
