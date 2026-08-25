@@ -4,6 +4,7 @@ import { SkillBadge } from './SkillBadge';
 import { theme } from '../theme';
 import { colors, duo } from '../theme';
 import { resolveAssetUrl } from '../api';
+import { useFeedback } from '../services/FeedbackProvider';
 
 interface QuestionCardProps {
   question: any;
@@ -14,6 +15,7 @@ interface QuestionCardProps {
 export function QuestionCard({ question, onAnswer, selectedAnswer }: QuestionCardProps) {
   const [numericalInput, setNumericalInput] = useState('');
   const [hoveredOpt, setHoveredOpt] = useState<number | null>(null);
+  const { feedback } = useFeedback();
 
   const isAnswered = selectedAnswer !== null && selectedAnswer !== undefined;
   const correctAnswer = question.correctAnswer;
@@ -26,16 +28,33 @@ export function QuestionCard({ question, onAnswer, selectedAnswer }: QuestionCar
   };
 
   const renderMCQ = () => (
-    <View style={styles.optionList}>
+    <View
+      style={styles.optionList}
+      accessible={true}
+      accessibilityRole="radiogroup"
+      accessibilityLabel="Answer options"
+    >
       {question.options?.map((opt: string, index: number) => {
         const state = getOptionState(opt);
+        const isSelected = selectedAnswer === opt;
+        const label = String.fromCharCode(65 + index);
         return (
           <Pressable
             key={index}
             disabled={isAnswered}
+            accessible={true}
+            accessibilityRole="radio"
+            accessibilityLabel={`Option ${label}: ${opt}`}
+            accessibilityState={{ checked: isSelected, disabled: isAnswered }}
             onPressIn={() => setHoveredOpt(index)}
             onPressOut={() => setHoveredOpt(null)}
-            onPress={() => onAnswer(opt)}
+            onPress={() => {
+              if (!isAnswered) {
+                feedback.haptics.lightTap();
+                feedback.audio.buttonTap();
+                onAnswer(opt);
+              }
+            }}
             style={[
               styles.optionCard,
               state === 'correct' && styles.optionCorrect,
@@ -59,7 +78,7 @@ export function QuestionCard({ question, onAnswer, selectedAnswer }: QuestionCar
                       styles.bulletTextActive,
                   ]}
                 >
-                  {String.fromCharCode(65 + index)}
+                  {label}
                 </Text>
               </View>
               <Text
@@ -89,13 +108,23 @@ export function QuestionCard({ question, onAnswer, selectedAnswer }: QuestionCar
         placeholder="Type your answer..."
         placeholderTextColor={colors.textMuted}
         editable={!isAnswered}
+        accessible={true}
+        accessibilityLabel="Numerical answer input"
+        accessibilityHint="Type a number and press CHECK to submit"
       />
       <TouchableOpacity
         style={[styles.submitBtn, isAnswered && { opacity: 0.5 }]}
         onPress={() => {
-          if (numericalInput.trim() && !isAnswered) onAnswer(numericalInput.trim());
+          if (numericalInput.trim() && !isAnswered) {
+            feedback.haptics.mediumTap();
+            feedback.audio.buttonTap();
+            onAnswer(numericalInput.trim());
+          }
         }}
         disabled={isAnswered}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel="Check answer"
       >
         <Text style={styles.submitBtnText}>CHECK</Text>
       </TouchableOpacity>
@@ -121,18 +150,34 @@ export function QuestionCard({ question, onAnswer, selectedAnswer }: QuestionCar
 
         {/* Spatial Options Grid (Image options or text options) */}
         {hasImageOptions ? (
-          <View style={styles.spatialGrid}>
+          <View
+            style={styles.spatialGrid}
+            accessible={true}
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Spatial answer options"
+          >
             {question.imageOptions.map((imgOpt: string, index: number) => {
               const optKey = question.options ? question.options[index] : String.fromCharCode(65 + index);
               const state = getOptionState(optKey);
               const isSelected = selectedAnswer === optKey;
               const optImageUri = resolveAssetUrl(imgOpt);
+              const label = String.fromCharCode(65 + index);
 
               return (
                 <Pressable
                   key={index}
                   disabled={isAnswered}
-                  onPress={() => onAnswer(optKey)}
+                  accessible={true}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`Option ${label}`}
+                  accessibilityState={{ checked: isSelected, disabled: isAnswered }}
+                  onPress={() => {
+                    if (!isAnswered) {
+                      feedback.haptics.lightTap();
+                      feedback.audio.buttonTap();
+                      onAnswer(optKey);
+                    }
+                  }}
                   style={[
                     styles.spatialCard,
                     state === 'correct' && styles.optionCorrect,
@@ -142,7 +187,7 @@ export function QuestionCard({ question, onAnswer, selectedAnswer }: QuestionCar
                   ]}
                 >
                   <View style={styles.spatialBadge}>
-                    <Text style={styles.spatialBadgeText}>{String.fromCharCode(65 + index)}</Text>
+                    <Text style={styles.spatialBadgeText}>{label}</Text>
                   </View>
                   {optImageUri ? (
                     <Image
@@ -156,14 +201,32 @@ export function QuestionCard({ question, onAnswer, selectedAnswer }: QuestionCar
             })}
           </View>
         ) : (
-          <View style={styles.spatialGrid}>
+          <View
+            style={styles.spatialGrid}
+            accessible={true}
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Spatial answer options"
+          >
             {question.options?.map((opt: string, index: number) => {
               const state = getOptionState(opt);
+              const isSelected = selectedAnswer === opt;
+              const label = String.fromCharCode(65 + index);
+
               return (
                 <Pressable
                   key={index}
                   disabled={isAnswered}
-                  onPress={() => onAnswer(opt)}
+                  accessible={true}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`Option ${label}: ${opt}`}
+                  accessibilityState={{ checked: isSelected, disabled: isAnswered }}
+                  onPress={() => {
+                    if (!isAnswered) {
+                      feedback.haptics.lightTap();
+                      feedback.audio.buttonTap();
+                      onAnswer(opt);
+                    }
+                  }}
                   style={[
                     styles.spatialCard,
                     state === 'correct' && styles.optionCorrect,
@@ -203,7 +266,7 @@ export function QuestionCard({ question, onAnswer, selectedAnswer }: QuestionCar
 
   return (
     <View style={styles.card}>
-      {/* Category Tag (Duolingo's purple "NEW WORD" style) */}
+      {/* Category Tag */}
       <View style={styles.categoryRow}>
         <SkillBadge skill={question.skill} />
         <Text style={styles.categoryLabel}>
@@ -211,8 +274,16 @@ export function QuestionCard({ question, onAnswer, selectedAnswer }: QuestionCar
         </Text>
       </View>
 
-      {/* Question Prompt (Duolingo: 22.5px/700) */}
-      <Text style={styles.prompt}>{question.prompt}</Text>
+      {/* Question Prompt — live region so VoiceOver announces new questions */}
+      <Text
+        style={styles.prompt}
+        accessible={true}
+        accessibilityLiveRegion="polite"
+        accessibilityRole="text"
+        accessibilityLabel={question.prompt || question.text}
+      >
+        {question.prompt || question.text}
+      </Text>
 
       {/* Answer Options */}
       {renderInput()}

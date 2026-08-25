@@ -1,130 +1,174 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
-import haptics from './haptics';
-import audio, { SoundEffect } from './audio';
-import { api, UserPreferences } from '../api';
+/**
+ * FeedbackProvider.tsx
+ * React Context that surfaces haptics, audio, and accessibility announcements
+ * to the entire component tree via useFeedback().
+ *
+ * Responsibilities:
+ *   - Load user preferences from AsyncStorage on mount
+ *   - Apply preferences to hapticsService and audioService singletons
+ *   - Expose a stable `feedback` object with haptics/audio/announce helpers
+ *   - Re-apply preferences whenever they change via `updatePreferences()`
+ *
+ * Usage:
+ *   // In _layout.tsx (root):
+ *   <FeedbackProvider>
+ *     <Stack ... />
+ *   </FeedbackProvider>
+ *
+ *   // In any component:
+ *   const { feedback } = useFeedback();
+ *   feedback.haptics.lightTap();
+ *   feedback.audio.correct();
+ *   feedback.announce('Correct! Well done.');
+ */
 
-export type FeedbackType = 'correct' | 'wrong' | 'tap' | 'button' | 'streak' | 'complete' | 'modal';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { AccessibilityInfo } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { hapticsService, HapticPatterns } from './haptics';
+import { audioService } from './audio';
 
-interface FeedbackContextType {
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+export interface UserPreferences {
   hapticsEnabled: boolean;
   soundEnabled: boolean;
-  soundVolume: number;
-  setHapticsEnabled: (enabled: boolean) => void;
-  setSoundEnabled: (enabled: boolean) => void;
-  setSoundVolume: (volume: number) => void;
-  triggerFeedback: (type: FeedbackType) => void;
+  soundVolume: number; // 0–100
 }
 
-const FeedbackContext = createContext<FeedbackContextType>({
+const DEFAULT_PREFERENCES: UserPreferences = {
   hapticsEnabled: true,
   soundEnabled: true,
   soundVolume: 70,
-  setHapticsEnabled: () => {},
-  setSoundEnabled: () => {},
-  setSoundVolume: () => {},
-  triggerFeedback: () => {},
-});
+};
 
-export const FeedbackProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [hapticsEnabled, setHapticsState] = useState<boolean>(true);
-  const [soundEnabled, setSoundState] = useState<boolean>(true);
-  const [soundVolume, setSoundVolumeState] = useState<number>(70);
+const STORAGE_KEY = '@gate_aptitude_prefs_v1';
 
-  // Sync with API preferences on mount
+export interface FeedbackContextValue {
+  preferences: UserPreferences;
+  updatePreferences: (patch: Partial<UserPreferences>) => Promise<void>;
+  /** Wrappers that respect enabled/volume state — use these in components. */
+  feedback: {
+    haptics: typeof HapticPatterns;
+    audio: typeof audioService;
+    /** Announce a message to screen readers (VoiceOver / TalkBack). */
+    announce: (message: string) => void;
+  };
+  prefsLoaded: boolean;
+}
+
+// ─── Context ─────────────────────────────────────────────────────────────────
+
+const FeedbackContext = createContext<FeedbackContextValue | null>(null);
+
+// ─── Provider ────────────────────────────────────────────────────────────────
+
+export function FeedbackProvider({ children }: { children: React.ReactNode }) {
+  const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const soundsLoaded = useRef(false);
+
+  // Load preferences from AsyncStorage on mount
   useEffect(() => {
-    let isMounted = true;
     (async () => {
       try {
-        const res = await api.getPreferences();
-        if (res?.preferences && isMounted) {
-          const { hapticsEnabled: h, soundEnabled: s, soundVolume: v } = res.preferences;
-          setHapticsState(h ?? true);
-          setSoundState(s ?? true);
-          setSoundVolumeState(v ?? 70);
-
-          haptics.setEnabled(h ?? true);
-          audio.setEnabled(s ?? true);
-          audio.setVolume(v ?? 70);
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const stored: Partial<UserPreferences> = JSON.parse(raw);
+          const merged = { ...DEFAULT_PREFERENCES, ...stored };
+          setPreferences(merged);
+          applyToServices(merged);
         }
-      } catch {
-        // Fallback to local defaults if API offline
+      } catch (err) {
+        console.warn('[FeedbackProvider] Could not load preferences:', err);
+      } finally {
+        setPrefsLoaded(true);
       }
     })();
+  }, []);
 
+  // Load audio assets once preferences are resolved and sound is enabled
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    if (preferences.soundEnabled && !soundsLoaded.current) {
+      soundsLoaded.current = true;
+      audioService.loadSounds().catch((err) =>
+        console.warn('[FeedbackProvider] Sound preload failed:', err)
+      );
+    }
+  }, [prefsLoaded, preferences.soundEnabled]);
+
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
-      isMounted = false;
+      audioService.unloadAll().catch(() => {});
     };
   }, []);
 
-  const setHapticsEnabled = (enabled: boolean) => {
-    setHapticsState(enabled);
-    haptics.setEnabled(enabled);
-    api.updatePreferences({ hapticsEnabled: enabled }).catch(() => {});
-  };
+  const updatePreferences = useCallback(async (patch: Partial<UserPreferences>) => {
+    setPreferences((prev) => {
+      const next = { ...prev, ...patch };
+      applyToServices(next);
+      // Persist to AsyncStorage (fire-and-forget)
+      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch((err) =>
+        console.warn('[FeedbackProvider] Prefs save failed:', err)
+      );
+      return next;
+    });
+  }, []);
 
-  const setSoundEnabled = (enabled: boolean) => {
-    setSoundState(enabled);
-    audio.setEnabled(enabled);
-    api.updatePreferences({ soundEnabled: enabled }).catch(() => {});
-  };
-
-  const setSoundVolume = (volume: number) => {
-    setSoundVolumeState(volume);
-    audio.setVolume(volume);
-    api.updatePreferences({ soundVolume: volume }).catch(() => {});
-  };
-
-  const triggerFeedback = (type: FeedbackType) => {
+  const announce = useCallback((message: string) => {
+    // Always announce regardless of sound preference — screen reader is separate
     try {
-      switch (type) {
-        case 'correct':
-          haptics.correctAnswer().catch(() => {});
-          audio.playSound('correct').catch(() => {});
-          break;
-        case 'wrong':
-          haptics.wrongAnswer().catch(() => {});
-          audio.playSound('wrong').catch(() => {});
-          break;
-        case 'tap':
-        case 'button':
-          haptics.buttonPress().catch(() => {});
-          audio.playSound('click').catch(() => {});
-          break;
-        case 'streak':
-          haptics.notificationSuccess().catch(() => {});
-          audio.playSound('streak').catch(() => {});
-          break;
-        case 'complete':
-          haptics.notificationSuccess().catch(() => {});
-          audio.playSound('complete').catch(() => {});
-          break;
-        case 'modal':
-          haptics.modalOpen().catch(() => {});
-          break;
-        default:
-          haptics.impactLight().catch(() => {});
-          break;
-      }
-    } catch {
-      // Defensive fallback — never crash UI thread
-    }
-  };
+      AccessibilityInfo.announceForAccessibility(message);
+    } catch { /* ignore */ }
+  }, []);
 
-  const value = useMemo(
+  const contextValue = useMemo<FeedbackContextValue>(
     () => ({
-      hapticsEnabled,
-      soundEnabled,
-      soundVolume,
-      setHapticsEnabled,
-      setSoundEnabled,
-      setSoundVolume,
-      triggerFeedback,
+      preferences,
+      updatePreferences,
+      feedback: {
+        haptics: HapticPatterns,
+        audio: audioService,
+        announce,
+      },
+      prefsLoaded,
     }),
-    [hapticsEnabled, soundEnabled, soundVolume]
+    [preferences, updatePreferences, announce, prefsLoaded]
   );
 
-  return <FeedbackContext.Provider value={value}>{children}</FeedbackContext.Provider>;
-};
+  return (
+    <FeedbackContext.Provider value={contextValue}>
+      {children}
+    </FeedbackContext.Provider>
+  );
+}
 
-export const useFeedback = () => useContext(FeedbackContext);
+// ─── Hook ─────────────────────────────────────────────────────────────────────
+
+export function useFeedback(): FeedbackContextValue {
+  const ctx = useContext(FeedbackContext);
+  if (!ctx) {
+    throw new Error('useFeedback() must be used inside <FeedbackProvider>');
+  }
+  return ctx;
+}
+
 export default FeedbackProvider;
+
+// ─── Internal helpers ────────────────────────────────────────────────────────
+
+function applyToServices(prefs: UserPreferences): void {
+  hapticsService.setEnabled(prefs.hapticsEnabled);
+  audioService.setEnabled(prefs.soundEnabled);
+  audioService.setVolume(prefs.soundVolume);
+}
