@@ -10,7 +10,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SprintSubmissionResponse } from '../../api';
 import { SkillBadge } from '../../components/SkillBadge';
-import { SpriteAnimator } from '../../components/SpriteAnimator';
+import { SprintyMascot } from '../../components/SprintyMascot';
 import { colors, duo } from '../../theme';
 
 export default function SprintResultsScreen() {
@@ -69,17 +69,10 @@ export default function SprintResultsScreen() {
           },
         ]}
       >
-        {/* Mascot */}
-        <SpriteAnimator
-          source={
-            isGreatScore
-              ? require('../../../assets/sprites/sprinty_correct_jump_sprite.png')
-              : require('../../../assets/sprites/sprinty_idle_hover_sprite.png')
-          }
-          style={styles.heroMascot}
-          frameCount={4}
-          fps={isGreatScore ? 12 : 8}
-          loop={!isGreatScore}
+        {/* SPRINTY Mascot Hero Celebration */}
+        <SprintyMascot
+          size="lg"
+          overrideEmotion={isGreatScore ? 'EXCITED_JUMP' : 'IDLE_HOVER'}
         />
 
         <Text

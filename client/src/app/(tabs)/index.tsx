@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import { api, PathNode, PathTreeResponse, UserMeResponse } from '../../api';
 import { colors, duo } from '../../theme';
-import { SpriteAnimator } from '../../components/SpriteAnimator';
+import { SprintyMascot } from '../../components/SprintyMascot';
 import { PathCanvas, ROW_HEIGHT, TOP_PADDING } from '../../components/PathCanvas';
 import { NodePreviewTooltip } from '../../components/NodePreviewTooltip';
 import haptics from '../../services/haptics';
@@ -376,22 +376,14 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        {/* ─── Mascot + Dynamic Speech Bubble ─── */}
-        <View style={styles.mascotRow}>
-          <SpriteAnimator
-            source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
-            style={styles.mascotImg}
-            frameCount={4}
-            fps={8}
-          />
-          <View style={styles.speechBubble}>
-            <Text style={styles.speechText}>
-              Next up:{'\n'}
-              <Text style={styles.speechHighlight}>{currentNode?.topic || 'GATE Aptitude'}</Text>
-            </Text>
-            <View style={styles.speechArrow} />
-          </View>
-        </View>
+        {/* ─── SPRINTY Companion + Dynamic Speech Bubble ─── */}
+        <SprintyMascot
+          size="md"
+          showSpeechBubble={true}
+          speechText="Next up:"
+          speechHighlight={currentNode?.topic || 'GATE Aptitude'}
+          style={styles.mascotRow}
+        />
 
         {/* ─── Daily Sprint Card (3D Chunky) ─── */}
         <View style={styles.sprintCard}>

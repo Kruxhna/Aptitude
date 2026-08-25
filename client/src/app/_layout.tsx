@@ -5,6 +5,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { api } from '../api';
 import { colors } from '../theme';
 import { FeedbackProvider } from '../services/FeedbackProvider';
+import { MascotProvider } from '../mascot/MascotContext';
 
 export default function RootLayout() {
   const router = useRouter();
@@ -49,29 +50,35 @@ export default function RootLayout() {
 
   return (
     <FeedbackProvider>
-      <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: colors.background,
-          },
-          headerTintColor: colors.text,
-          contentStyle: {
-            backgroundColor: colors.background,
-          },
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="sprint/[type]"
-          options={{ title: 'Daily Sprint', headerBackTitle: 'Cancel' }}
-        />
-        <Stack.Screen
-          name="sprint/results"
-          options={{ title: 'Sprint Results', headerLeft: () => null }}
-        />
-      </Stack>
+      <MascotProvider>
+        <StatusBar style="dark" />
+        <Stack
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: colors.background,
+            },
+            headerTintColor: colors.text,
+            contentStyle: {
+              backgroundColor: colors.background,
+            },
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="wardrobe"
+            options={{ title: 'SPRINTY Wardrobe', presentation: 'modal', headerShown: false }}
+          />
+          <Stack.Screen
+            name="sprint/[type]"
+            options={{ title: 'Daily Sprint', headerBackTitle: 'Cancel' }}
+          />
+          <Stack.Screen
+            name="sprint/results"
+            options={{ title: 'Sprint Results', headerLeft: () => null }}
+          />
+        </Stack>
+      </MascotProvider>
     </FeedbackProvider>
   );
 }

@@ -10,7 +10,7 @@ import Animated, {
   Easing,
   runOnJS,
 } from 'react-native-reanimated';
-import { SpriteAnimator } from './SpriteAnimator';
+import { SprintyMascot } from './SprintyMascot';
 import { theme } from '../theme';
 import { SymbolView } from 'expo-symbols';
 import { useFeedback } from '../services/FeedbackProvider';
@@ -161,18 +161,11 @@ export function QuizFeedback({
     <Animated.View style={[styles.overlayContainer, bannerAnimatedStyle]}>
       <View style={[styles.bannerCard, { backgroundColor, borderColor, borderWidth: 2, borderBottomWidth: 5, borderBottomColor: borderColor }]}>
         <View style={styles.contentRow}>
-          {/* SPRINTY Robot Icon Performing Jump */}
+          {/* SPRINTY Robot Mascot with Emotion & Active Costume */}
           <Animated.View style={[styles.robotContainer, robotAnimatedStyle]}>
-            <SpriteAnimator
-              source={
-                isCorrect
-                  ? require('../../assets/sprites/sprinty_correct_jump_sprite.png')
-                  : require('../../assets/sprites/sprinty_idle_hover_sprite.png')
-              }
-              style={styles.robotSprite}
-              frameCount={4}
-              fps={isCorrect ? 12 : 8}
-              loop={!isCorrect}
+            <SprintyMascot
+              size="sm"
+              overrideEmotion={isCorrect ? 'EXCITED_JUMP' : 'SAD_HEADSHAKE'}
             />
           </Animated.View>
 
