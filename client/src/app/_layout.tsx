@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { api } from '../api';
 import { colors } from '../theme';
+import { FeedbackProvider } from '../services/FeedbackProvider';
 
 export default function RootLayout() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <FeedbackProvider>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -71,7 +72,7 @@ export default function RootLayout() {
           options={{ title: 'Sprint Results', headerLeft: () => null }}
         />
       </Stack>
-    </>
+    </FeedbackProvider>
   );
 }
 

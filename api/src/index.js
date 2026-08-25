@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require('path');
 
 const { connectDB } = require('./config/db');
 const redis = require('./config/redis');
@@ -20,10 +21,14 @@ const app = express();
 const PORT = process.env.API_PORT || 3000;
 
 // --- Middleware ---
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors());
 app.use(express.json());
 app.use(mockUserMiddleware);
+
+// --- Static Assets (Spatial Images) ---
+app.use(express.static(path.join(__dirname, '../public')));
+app.use('/spatial', express.static(path.join(__dirname, '../public/spatial')));
 
 // --- Routes ---
 app.use(healthRoutes);
