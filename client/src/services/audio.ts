@@ -8,6 +8,7 @@
  *   - Each named method plays with its optimal volume
  *   - Gracefully skips missing/empty audio files (logs warning, no crash)
  *   - Volume is scaled: userVolume (0–100) × perSoundVolume (0.0–1.0)
+ *   - Safe try-catch wrappers around all native operations
  *
  * Usage:
  *   import { audioService } from '../services/audio';
@@ -22,7 +23,6 @@ import { Platform } from 'react-native';
 
 // Lazily import expo-av to avoid crashing on web if not available
 let Audio: typeof import('expo-av').Audio | null = null;
-let SoundType: any = null;
 
 if (Platform.OS !== 'web') {
   try {
@@ -35,7 +35,6 @@ if (Platform.OS !== 'web') {
 
 // ─── Sound file registry ─────────────────────────────────────────────────────
 // Keys map to files in /client/assets/audio/<key>.mp3
-// Add or remove entries here; loadSounds() picks them all up automatically.
 
 const SOUND_REGISTRY: Record<string, any> = {
   'pop-correct':      require('../../assets/audio/pop-correct.mp3'),
@@ -128,34 +127,34 @@ class AudioService {
   // Volumes are tuned for balance: correct/wrong louder, UI taps quieter.
 
   /** Subtle pop — correct answer. */
-  correct(): void { this.playSound('pop-correct', 0.6); }
+  correct(): void { this.playSound('pop-correct', 0.6).catch(() => {}); }
 
   /** Descending tone — wrong answer. */
-  wrong(): void { this.playSound('descending-wrong', 0.7); }
+  wrong(): void { this.playSound('descending-wrong', 0.7).catch(() => {}); }
 
   /** Satisfying chime — streak continued or milestone. */
-  streakChime(): void { this.playSound('streak-chime', 0.8); }
+  streakChime(): void { this.playSound('streak-chime', 0.8).catch(() => {}); }
 
   /** Celebratory fanfare — level up or achievement. */
-  levelUp(): void { this.playSound('level-up', 0.9); }
+  levelUp(): void { this.playSound('level-up', 0.9).catch(() => {}); }
 
   /** Quick whoosh — sprint begins. */
-  sprintStart(): void { this.playSound('sprint-start', 0.5); }
+  sprintStart(): void { this.playSound('sprint-start', 0.5).catch(() => {}); }
 
   /** Gentle completion sound — sprint results shown. */
-  sprintEnd(): void { this.playSound('sprint-end', 0.5); }
+  sprintEnd(): void { this.playSound('sprint-end', 0.5).catch(() => {}); }
 
   /** Light tap — UI button interaction. */
-  buttonTap(): void { this.playSound('button-tap', 0.3); }
+  buttonTap(): void { this.playSound('button-tap', 0.3).catch(() => {}); }
 
   /** Coin-like sound — XP counter increments. */
-  xpEarn(): void { this.playSound('xp-earn', 0.6); }
+  xpEarn(): void { this.playSound('xp-earn', 0.6).catch(() => {}); }
 
   /** Playful bounce — SPRINTY mascot jumps. */
-  mascotJump(): void { this.playSound('mascot-jump', 0.5); }
+  mascotJump(): void { this.playSound('mascot-jump', 0.5).catch(() => {}); }
 
   /** Subtle tick — final 5 seconds countdown. */
-  timerTick(): void { this.playSound('timer-tick', 0.2); }
+  timerTick(): void { this.playSound('timer-tick', 0.2).catch(() => {}); }
 
   /**
    * Release all sound objects from native memory.
@@ -173,3 +172,4 @@ class AudioService {
 // ─── Exported singleton ──────────────────────────────────────────────────────
 
 export const audioService = new AudioService();
+export default audioService;

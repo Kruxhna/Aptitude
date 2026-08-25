@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  Image,
   TouchableOpacity,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,8 +19,11 @@ import { api, Question, SprintSession } from '../../api';
 import { QuestionCard } from '../../components/QuestionCard';
 import { TimerBar } from '../../components/TimerBar';
 import { QuizFeedback } from '../../components/QuizFeedback';
+import { StreakFlame } from '../../components/StreakFlame';
+import { ConfettiOverlay } from '../../components/ConfettiOverlay';
 import { SpriteAnimator } from '../../components/SpriteAnimator';
 import { colors, duo } from '../../theme';
+import { useFeedback } from '../../services/FeedbackProvider';
 
 const PER_QUESTION_TIMERS: Record<string, number> = {
   verbal: 30,
@@ -33,6 +35,7 @@ const PER_QUESTION_TIMERS: Record<string, number> = {
 export default function ActiveSprintScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
   const router = useRouter();
+  const { feedback } = useFeedback();
 
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<SprintSession | null>(null);
@@ -40,6 +43,14 @@ export default function ActiveSprintScreen() {
   const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
   const [streakCount, setStreakCount] = useState(0);
+
+  // Milestone confetti celebration
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Skip & Hint Mechanics
+  const [hintsRemaining, setHintsRemaining] = useState(1);
+  const [eliminatedOptions, setEliminatedOptions] = useState<string[]>([]);
+  const [activeHintText, setActiveHintText] = useState<string | null>(null);
 
   // Feedback banner state
   const [showFeedback, setShowFeedback] = useState(false);
@@ -90,10 +101,24 @@ export default function ActiveSprintScreen() {
 
     const correct = currentQuestion?.correctAnswer !== undefined
       ? answer === currentQuestion.correctAnswer
-      : answer !== 'TIMEOUT';
+      : answer !== 'TIMEOUT' && answer !== 'SKIPPED';
 
     setIsLastAnswerCorrect(correct);
-    setStreakCount(prev => correct ? prev + 1 : 0);
+
+    if (correct) {
+      const nextStreak = streakCount + 1;
+      setStreakCount(nextStreak);
+
+      // Trigger full celebration on milestone (5, 10, etc.)
+      if (nextStreak === 5 || (nextStreak > 5 && nextStreak % 5 === 0)) {
+        setShowConfetti(true);
+        feedback.audio.levelUp();
+        feedback.haptics.successNotification();
+      }
+    } else {
+      setStreakCount(0);
+    }
+
     setShowFeedback(true);
 
     if (currentQuestion) {
@@ -122,12 +147,57 @@ export default function ActiveSprintScreen() {
     }
   };
 
+  const handleUseHint = () => {
+    if (hintsRemaining <= 0 || selectedAnswer !== null || showFeedback || !currentQuestion) return;
+
+    feedback.haptics.lightTap();
+    feedback.audio.buttonTap();
+    setHintsRemaining((prev) => prev - 1);
+
+    // 50/50 Distractor Elimination for MCQs / Spatial options
+    const allOptions = currentQuestion.options || [];
+    const correct = currentQuestion.correctAnswer;
+
+    if (allOptions.length >= 3) {
+      const wrongOptions = allOptions.filter((opt) => opt !== correct);
+      // Shuffle & pick 2 distractors to eliminate
+      const shuffled = [...wrongOptions].sort(() => Math.random() - 0.5);
+      const toEliminate = shuffled.slice(0, 2);
+      setEliminatedOptions(toEliminate);
+    }
+
+    // Display hint clue / strategy tip
+    const hintClue =
+      currentQuestion.strategyTip ||
+      (currentQuestion.hintLevels?.level1 ?? 'Eliminated 2 incorrect distractors to improve your odds!');
+    setActiveHintText(hintClue);
+  };
+
+  const handleSkipQuestion = () => {
+    if (selectedAnswer !== null || showFeedback || !currentQuestion) return;
+
+    feedback.haptics.mediumTap();
+    feedback.audio.buttonTap();
+
+    // Skip question without resetting streak!
+    const timeSpent = Math.max(100, Date.now() - questionStartTime.current);
+    responsesRef.current.push({
+      questionId: currentQuestion._id || currentQuestion.id,
+      answer: 'SKIPPED',
+      timeMs: timeSpent,
+    });
+
+    advanceToNext();
+  };
+
   const advanceToNext = () => {
     setShowFeedback(false);
     setSelectedAnswer(null);
+    setEliminatedOptions([]);
+    setActiveHintText(null);
 
     if (session && currentIndex + 1 < session.questions.length) {
-      setCurrentIndex(prev => prev + 1);
+      setCurrentIndex((prev) => prev + 1);
       questionStartTime.current = Date.now();
       triggerQuestionEntryAnimation();
     } else {
@@ -140,8 +210,8 @@ export default function ActiveSprintScreen() {
     try {
       setSubmitting(true);
       const submissionResult = await api.submitSprint({
-        sprintId: session.sprintId || session.id,
-        answers: responsesRef.current,
+        sprintId: session.sprintId || session.id || '',
+        responses: responsesRef.current,
       } as any);
 
       router.replace({
@@ -219,11 +289,19 @@ export default function ActiveSprintScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ── Duolingo Top Bar: Close + Progress + Hearts ── */}
+      {/* ── Confetti Milestone Celebration Overlay ── */}
+      <ConfettiOverlay
+        visible={showConfetti}
+        streakCount={streakCount}
+        onDismiss={() => setShowConfetti(false)}
+      />
+
+      {/* ── Top Bar: Close + Progress + Streak Flame + Hearts ── */}
       <View style={styles.topBar}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.closeBtn}
+          accessibilityLabel="Close sprint"
         >
           <Text style={styles.closeBtnText}>✕</Text>
         </TouchableOpacity>
@@ -233,12 +311,8 @@ export default function ActiveSprintScreen() {
           <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
         </View>
 
-        {/* Streak Counter */}
-        {streakCount > 0 && (
-          <View style={styles.streakPill}>
-            <Text style={styles.streakText}>{streakCount} 🔥</Text>
-          </View>
-        )}
+        {/* Dynamic Streak Flame Counter */}
+        <StreakFlame streak={streakCount} />
 
         {/* Hearts */}
         <View style={styles.heartPill}>
@@ -247,7 +321,7 @@ export default function ActiveSprintScreen() {
         </View>
       </View>
 
-      {/* ── Timer Bar ── */}
+      {/* ── Dynamic Progress Timer Bar ── */}
       <TimerBar
         key={currentIndex}
         durationSeconds={timerSeconds}
@@ -255,15 +329,47 @@ export default function ActiveSprintScreen() {
         isActive={selectedAnswer === null && !showFeedback}
       />
 
-      {/* ── Question Card ── */}
+      {/* ── Active Question Card ── */}
       {currentQuestion && (
         <Animated.View style={[styles.questionWrap, questionAnimatedStyle]}>
           <QuestionCard
             question={currentQuestion}
             onAnswer={handleAnswerSubmit}
             selectedAnswer={selectedAnswer}
+            eliminatedOptions={eliminatedOptions}
+            activeHint={activeHintText}
           />
         </Animated.View>
+      )}
+
+      {/* ── Hint & Skip Action Footer ── */}
+      {selectedAnswer === null && !showFeedback && (
+        <View style={styles.actionFooter}>
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              styles.hintBtn,
+              hintsRemaining <= 0 && styles.actionBtnDisabled,
+            ]}
+            onPress={handleUseHint}
+            disabled={hintsRemaining <= 0}
+            accessibilityLabel={`Use hint, ${hintsRemaining} remaining`}
+          >
+            <Text style={styles.actionBtnText}>
+              💡 HINT {hintsRemaining > 0 ? `(${hintsRemaining})` : '(0)'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.skipBtn]}
+            onPress={handleSkipQuestion}
+            accessibilityLabel="Skip question"
+          >
+            <Text style={[styles.actionBtnText, styles.skipBtnText]}>
+              ⏭️ SKIP
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* ── Feedback Banner ── */}
@@ -272,6 +378,7 @@ export default function ActiveSprintScreen() {
         isCorrect={isLastAnswerCorrect}
         xp_gained={10}
         explanation={currentQuestion?.explanation}
+        strategyTip={currentQuestion?.strategyTip}
         onContinue={advanceToNext}
       />
     </SafeAreaView>
@@ -312,11 +419,11 @@ const styles = StyleSheet.create({
     height: 90,
   },
 
-  // ── Duolingo Top Bar ──
+  // ── Top Bar ──
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     marginBottom: 4,
   },
   closeBtn: {
@@ -332,7 +439,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     flex: 1,
-    height: 16,
+    height: 14,
     backgroundColor: colors.cardBorder,
     borderRadius: duo.radiusProgress,
     overflow: 'hidden',
@@ -342,28 +449,61 @@ const styles = StyleSheet.create({
     backgroundColor: colors.duoGold,
     borderRadius: duo.radiusProgress,
   },
-  streakPill: {
-    backgroundColor: '#FFF4CC',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: duo.radiusPill,
-  },
-  streakText: {
-    fontSize: duo.fontCaption,
-    fontWeight: '700',
-    color: '#E5B300',
-  },
   heartPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 14,
   },
   heartIcon: {
-    fontSize: 18,
+    fontSize: 15,
   },
   heartCount: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     color: colors.duoRed,
+  },
+
+  // ── Hint & Skip Action Footer ──
+  actionFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 10,
+  },
+  actionBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hintBtn: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+    borderBottomWidth: 4,
+    borderBottomColor: '#D97706',
+  },
+  skipBtn: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+    borderBottomWidth: 4,
+    borderBottomColor: '#94A3B8',
+  },
+  actionBtnDisabled: {
+    opacity: 0.45,
+  },
+  actionBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.5,
+  },
+  skipBtnText: {
+    color: '#64748B',
   },
 });

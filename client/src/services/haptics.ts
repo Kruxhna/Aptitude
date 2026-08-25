@@ -4,8 +4,9 @@
  *
  * All haptic methods are safe to call unconditionally — they:
  *   1. No-op on web (expo-haptics is native-only)
- *   2. No-op when device has no haptic hardware
+ *   2. No-op when device has no haptic hardware or on emulators
  *   3. Respect the global enabled/disabled toggle
+ *   4. Catch all native promise rejections safely
  *
  * Usage:
  *   import { HapticPatterns, hapticsService } from '../services/haptics';
@@ -46,7 +47,7 @@ class HapticsService {
     try {
       await fn();
     } catch {
-      // Ignore — hardware not available or permission denied
+      // Ignore — hardware not available, emulator, or permission denied
     }
   }
 
@@ -149,10 +150,41 @@ class HapticsService {
    */
   async correctAnswerCombo(): Promise<void> {
     if (!this.isEnabled) return;
-    await this.successHeavy();
-    setTimeout(() => {
-      this.successNotification();
-    }, 100);
+    try {
+      await this.successHeavy();
+      setTimeout(() => {
+        this.successNotification();
+      }, 100);
+    } catch { /* ignore */ }
+  }
+
+  // ── Convenience Aliases for Path/Sprint components ──
+  async impactLight(): Promise<void> {
+    return this.lightTap();
+  }
+
+  async impactMedium(): Promise<void> {
+    return this.mediumTap();
+  }
+
+  async impactHeavy(): Promise<void> {
+    return this.successHeavy();
+  }
+
+  async buttonPress(): Promise<void> {
+    return this.lightTap();
+  }
+
+  async modalOpen(): Promise<void> {
+    return this.mediumTap();
+  }
+
+  async error(): Promise<void> {
+    return this.errorNotification();
+  }
+
+  async selection(): Promise<void> {
+    return this.selectionChange();
   }
 }
 
@@ -176,3 +208,5 @@ export const HapticPatterns = {
   sprintJump: () => hapticsService.sprintJump(),
   correctAnswerCombo: () => hapticsService.correctAnswerCombo(),
 } as const;
+
+export default hapticsService;

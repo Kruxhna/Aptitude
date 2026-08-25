@@ -1,10 +1,63 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// Use localhost for iOS simulator, 10.0.2.2 for Android emulator
-const API_URL = __DEV__ 
-  ? (Platform.OS === 'android' ? 'http://10.0.2.2:3000/api' : 'http://localhost:3000/api')
-  : 'https://production-api.example.com/api';
+/**
+ * Dynamically resolves the API Base URL:
+ * 1. Explicit env var: process.env.EXPO_PUBLIC_API_URL
+ * 2. Physical Android/iOS device (Expo Go / Dev Build): extract host LAN IP from Constants.expoConfig?.hostUri or debuggerHost
+ * 3. Android Emulator fallback: http://10.0.2.2:3000/api
+ * 4. iOS Simulator / Web / Default: http://localhost:3000/api
+ */
+export function getApiBaseUrl(): string {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/+$/, '');
+  }
+
+  if (__DEV__) {
+    // Attempt LAN IP resolution from Expo hostUri (e.g. "192.168.1.50:8081")
+    const hostUri =
+      Constants.expoConfig?.hostUri ||
+      (Constants as any).manifest2?.extra?.expoGo?.debuggerHost ||
+      (Constants as any).manifest?.debuggerHost;
+
+    if (hostUri) {
+      const host = hostUri.split(':')[0];
+      if (host && host !== 'localhost' && host !== '127.0.0.1') {
+        return `http://${host}:3000/api`;
+      }
+    }
+
+    if (Platform.OS === 'android') {
+      return 'http://10.0.2.2:3000/api';
+    }
+    return 'http://localhost:3000/api';
+  }
+
+  return 'https://production-api.example.com/api';
+}
+
+export const API_URL = getApiBaseUrl();
+
+// Base host without /api suffix (used for serving static images, e.g. http://192.168.1.50:3000)
+export const BASE_HOST_URL = API_URL.replace(/\/api\/?$/, '');
+
+/**
+ * Resolves relative asset paths (e.g. '/spatial/q1.png') to absolute URLs for Android/iOS Image components.
+ */
+export function resolveAssetUrl(path?: string | null): string | null {
+  if (!path) return null;
+  if (
+    path.startsWith('http://') ||
+    path.startsWith('https://') ||
+    path.startsWith('file://') ||
+    path.startsWith('data:')
+  ) {
+    return path;
+  }
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${BASE_HOST_URL}${cleanPath}`;
+}
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -46,6 +99,9 @@ export interface Question {
   type: 'mcq' | 'numerical' | 'spatial';
   skill: 'verbal' | 'quantitative' | 'logical' | 'spatial';
   text: string;
+  prompt?: string;
+  explanation?: string;
+  correctAnswer?: string | number;
   options?: string[];
   imageOptions?: string[];
   imagePath?: string;
@@ -63,6 +119,7 @@ export interface Question {
 export type SprintMode = 'learn' | 'test';
 
 export interface SprintSession {
+  id?: string;
   sprintId: string;
   type: string;
   mode: SprintMode;
@@ -79,10 +136,11 @@ export interface SprintSubmissionResponse {
   xpEarned: number;
   xpMultiplier: number;
   xpTotal: number;
-  streak: { current: number; freezesAvailable: number; freezeUsed: boolean };
+  streak: { current: number; freezesAvailable: number; freezeUsed: boolean; [key: string]: any };
   eloBefore: Record<string, number>;
   eloAfter: Record<string, number>;
   eloDeltas: Record<string, number>;
+  ratingDeltas?: Record<string, number>;
   results: SprintResult[];
 }
 
@@ -149,6 +207,24 @@ export const api = {
   },
   getLeaderboard: async () => {
     const response = await apiClient.get(`/leaderboard`);
+    return response.data;
+  },
+
+  // ─── User Preferences ──────────────────────────────────────
+  getPreferences: async (): Promise<{ preferences: UserPreferences }> => {
+    try {
+      const response = await apiClient.get('/users/preferences');
+      return response.data;
+    } catch {
+      return {
+        preferences: { hapticsEnabled: true, soundEnabled: true, soundVolume: 70 },
+      };
+    }
+  },
+  updatePreferences: async (
+    patch: Partial<UserPreferences>
+  ): Promise<{ preferences: UserPreferences }> => {
+    const response = await apiClient.put('/users/preferences', patch);
     return response.data;
   },
 

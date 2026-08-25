@@ -22,6 +22,7 @@ export interface QuizFeedbackProps {
   isCorrect: boolean;
   xp_gained?: number;
   explanation?: string;
+  strategyTip?: string | null;
   onContinue: () => void;
 }
 
@@ -30,6 +31,7 @@ export function QuizFeedback({
   isCorrect,
   xp_gained = 10,
   explanation,
+  strategyTip,
   onContinue,
 }: QuizFeedbackProps) {
   // Banner animations
@@ -185,8 +187,14 @@ export function QuizFeedback({
               )}
             </View>
 
+            {strategyTip ? (
+              <Text style={styles.strategyTipText}>
+                💡 {strategyTip}
+              </Text>
+            ) : null}
+
             {explanation ? (
-              <Text style={styles.explanationText} numberOfLines={2}>
+              <Text style={styles.explanationText} numberOfLines={4}>
                 {explanation}
               </Text>
             ) : null}
@@ -277,6 +285,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  strategyTipText: {
+    color: 'rgba(255, 255, 255, 0.95)',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   explanationText: {
     color: 'rgba(255, 255, 255, 0.9)',

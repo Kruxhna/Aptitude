@@ -109,7 +109,7 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      audioService.unloadAll();
+      audioService.unloadAll().catch(() => {});
     };
   }, []);
 
@@ -162,6 +162,8 @@ export function useFeedback(): FeedbackContextValue {
   }
   return ctx;
 }
+
+export default FeedbackProvider;
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
 
