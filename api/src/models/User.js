@@ -55,6 +55,14 @@ const userSchema = new Schema({
     soundEnabled: { type: Boolean, default: true },
     soundVolume: { type: Number, default: 70, min: 0, max: 100 },
   },
+  // ── Path / DAG Progress ──
+  pathProgress: [{
+    nodeId: { type: String, required: true },
+    state: { type: String, enum: ['COMPLETED', 'PERFECT', 'REVIEW'], default: 'COMPLETED' },
+    accuracy: { type: Number, default: 1.0 },
+    completedAt: { type: Date, default: Date.now },
+    timesCompleted: { type: Number, default: 1 },
+  }],
   createdAt: { type: Date, default: Date.now },
 });
 

@@ -87,6 +87,7 @@ router.get('/api/sprint', async (req, res, next) => {
       questionIds: questions.map(q => q._id.toString()),
       sprintType: type,
       mode,
+      nodeId: req.query.nodeId || null,
       createdAt: Date.now(),
     };
 
@@ -250,6 +251,27 @@ router.post('/api/sprint/submit', async (req, res, next) => {
     const totalCorrect = results.filter(r => r.correct).length;
     const accuracy = totalQuestions > 0 ? totalCorrect / totalQuestions : 0;
     const timeTotalMs = responses.reduce((acc, r) => acc + (r.timeMs || 0), 0);
+
+    const activeNodeId = sessionData.nodeId || req.body.nodeId;
+    if (activeNodeId) {
+      if (!user.pathProgress) user.pathProgress = [];
+      const nodeState = accuracy >= 0.90 ? 'PERFECT' : 'COMPLETED';
+      const existingIdx = user.pathProgress.findIndex(p => p.nodeId === activeNodeId);
+      if (existingIdx >= 0) {
+        user.pathProgress[existingIdx].state = nodeState;
+        user.pathProgress[existingIdx].accuracy = accuracy;
+        user.pathProgress[existingIdx].completedAt = new Date();
+        user.pathProgress[existingIdx].timesCompleted = (user.pathProgress[existingIdx].timesCompleted || 1) + 1;
+      } else {
+        user.pathProgress.push({
+          nodeId: activeNodeId,
+          state: nodeState,
+          accuracy,
+          completedAt: new Date(),
+          timesCompleted: 1,
+        });
+      }
+    }
 
     const ratingDeltas = {};
     ['verbal', 'quantitative', 'logical', 'spatial'].forEach(skill => {
