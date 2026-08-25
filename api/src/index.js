@@ -16,6 +16,9 @@ const userRoutes = require('./routes/users');
 const leaderboardRoutes = require('./routes/leaderboard');
 const analyticsRoutes = require('./routes/analytics');
 const onboardingRoutes = require('./routes/onboarding');
+const friendRoutes = require('./routes/friends');
+const leagueRoutes = require('./routes/leagues');
+const pathRoutes = require('./routes/path');
 
 const app = express();
 const PORT = process.env.API_PORT || 3000;
@@ -37,6 +40,9 @@ app.use(userRoutes);
 app.use(leaderboardRoutes);
 app.use(analyticsRoutes.router);
 app.use(onboardingRoutes);
+app.use(friendRoutes);
+app.use(leagueRoutes);
+app.use(pathRoutes);
 
 // --- Error Handler ---
 app.use((err, req, res, next) => {

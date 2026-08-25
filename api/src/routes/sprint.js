@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { User, Question, QuizSession } = require('../models');
+const { User, Question, QuizSession, Friend } = require('../models');
 const engineClient = require('../services/engineClient');
 const redisClient = require('../config/redis');
 const { scoreAnswer } = require('../utils/scorer');
 const gamification = require('../services/gamification');
+const leagueService = require('../services/leagueService');
 
 const VALID_SPRINT_TYPES = new Set(['quick', 'standard', 'deep']);
 const VALID_MODES = new Set(['learn', 'test']);
@@ -86,6 +87,7 @@ router.get('/api/sprint', async (req, res, next) => {
       questionIds: questions.map(q => q._id.toString()),
       sprintType: type,
       mode,
+      nodeId: req.query.nodeId || null,
       createdAt: Date.now(),
     };
 
@@ -215,16 +217,61 @@ router.post('/api/sprint/submit', async (req, res, next) => {
 
     user.elo = engineResponse.newRatings;
     user.xpTotal = (user.xpTotal || 0) + xpEarned;
+    user.weeklyXP = (user.weeklyXP || 0) + xpEarned;
 
-    // Leaderboard — league is Redis-only
+    // Leaderboard — league is Redis-only (existing global leaderboard)
     const leagueId = await gamification.getOrAssignLeague(req.userId);
     await gamification.updateRedisLeaderboard(req.userId, leagueId, xpEarned);
+
+    // Social leaderboards — fire-and-forget
+    setImmediate(async () => {
+      try {
+        // Update league-tier ZSET
+        const tier = user.currentLeague || 'Bronze';
+        await leagueService.updateLeagueZSET(req.userId, tier, xpEarned);
+
+        // Update friend leaderboards — find accepted friend IDs
+        const friendDocs = await Friend.find({
+          $or: [
+            { userId: req.userId, status: 'accepted' },
+            { friendId: req.userId, status: 'accepted' },
+          ],
+        }, 'userId friendId');
+        const friendIds = friendDocs.map(f =>
+          f.userId.toString() === req.userId.toString() ? f.friendId : f.userId
+        );
+        await leagueService.updateFriendLeaderboards(req.userId, friendIds, xpEarned);
+      } catch (err) {
+        console.warn('[Sprint] Social leaderboard update failed:', err.message);
+      }
+    });
 
     // 6. Summary metrics
     const totalQuestions = results.length;
     const totalCorrect = results.filter(r => r.correct).length;
     const accuracy = totalQuestions > 0 ? totalCorrect / totalQuestions : 0;
     const timeTotalMs = responses.reduce((acc, r) => acc + (r.timeMs || 0), 0);
+
+    const activeNodeId = sessionData.nodeId || req.body.nodeId;
+    if (activeNodeId) {
+      if (!user.pathProgress) user.pathProgress = [];
+      const nodeState = accuracy >= 0.90 ? 'PERFECT' : 'COMPLETED';
+      const existingIdx = user.pathProgress.findIndex(p => p.nodeId === activeNodeId);
+      if (existingIdx >= 0) {
+        user.pathProgress[existingIdx].state = nodeState;
+        user.pathProgress[existingIdx].accuracy = accuracy;
+        user.pathProgress[existingIdx].completedAt = new Date();
+        user.pathProgress[existingIdx].timesCompleted = (user.pathProgress[existingIdx].timesCompleted || 1) + 1;
+      } else {
+        user.pathProgress.push({
+          nodeId: activeNodeId,
+          state: nodeState,
+          accuracy,
+          completedAt: new Date(),
+          timesCompleted: 1,
+        });
+      }
+    }
 
     const ratingDeltas = {};
     ['verbal', 'quantitative', 'logical', 'spatial'].forEach(skill => {

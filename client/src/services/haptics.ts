@@ -157,6 +157,35 @@ class HapticsService {
       }, 100);
     } catch { /* ignore */ }
   }
+
+  // ── Convenience Aliases for Path/Sprint components ──
+  async impactLight(): Promise<void> {
+    return this.lightTap();
+  }
+
+  async impactMedium(): Promise<void> {
+    return this.mediumTap();
+  }
+
+  async impactHeavy(): Promise<void> {
+    return this.successHeavy();
+  }
+
+  async buttonPress(): Promise<void> {
+    return this.lightTap();
+  }
+
+  async modalOpen(): Promise<void> {
+    return this.mediumTap();
+  }
+
+  async error(): Promise<void> {
+    return this.errorNotification();
+  }
+
+  async selection(): Promise<void> {
+    return this.selectionChange();
+  }
 }
 
 // ─── Exported singleton ──────────────────────────────────────────────────────

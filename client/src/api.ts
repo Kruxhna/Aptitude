@@ -260,4 +260,49 @@ export const api = {
     const response = await apiClient.patch('/onboarding/tutorial/complete');
     return response.data;
   },
+
+  // ─── Learning Path / DAG ────────────────────────────────────
+  getPathTree: async (): Promise<PathTreeResponse> => {
+    const response = await apiClient.get('/path/tree');
+    return response.data;
+  },
+  completePathNode: async (nodeId: string, accuracy: number = 1.0): Promise<{ ok: boolean; nodes: PathNode[] }> => {
+    const response = await apiClient.post('/path/complete', { nodeId, accuracy });
+    return response.data;
+  },
 };
+
+// ─── Path & DAG Types ──────────────────────────────────────────
+
+export type NodeState = 'LOCKED' | 'CURRENT' | 'COMPLETED' | 'PERFECT' | 'REVIEW';
+export type SkillCategory = 'QUANTITATIVE' | 'LOGICAL' | 'VERBAL' | 'SPATIAL';
+
+export interface PathNode {
+  id: string;
+  skill: SkillCategory;
+  topic: string;
+  description?: string;
+  questionCount: number;
+  estimatedMinutes: number;
+  state: NodeState;
+  eloRequirement?: number;
+  xpReward?: number;
+  isBranch: boolean;        // true if side path, false if trunk
+  branchParentId?: string;  // parent node on main trunk
+  mergeTargetId?: string;
+  position: { x: number; y: number }; // Coordinates for layout & SVG connectors
+  accuracy?: number | null;
+  completedAt?: string | null;
+}
+
+export interface PathTreeResponse {
+  nodes: PathNode[];
+  stats: {
+    totalNodes: number;
+    completedCount: number;
+    progressPercent: number;
+    currentNodeId: string;
+    currentTopic: string;
+  };
+}
+
