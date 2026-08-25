@@ -19,6 +19,7 @@ const onboardingRoutes = require('./routes/onboarding');
 const friendRoutes = require('./routes/friends');
 const leagueRoutes = require('./routes/leagues');
 const pathRoutes = require('./routes/path');
+const mascotRoutes = require('./routes/mascot');
 
 const app = express();
 const PORT = process.env.API_PORT || 3000;
@@ -43,6 +44,7 @@ app.use(onboardingRoutes);
 app.use(friendRoutes);
 app.use(leagueRoutes);
 app.use(pathRoutes);
+app.use(mascotRoutes);
 
 // --- Error Handler ---
 app.use((err, req, res, next) => {

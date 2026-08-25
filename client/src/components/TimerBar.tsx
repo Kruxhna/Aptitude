@@ -18,6 +18,7 @@ interface TimerBarProps {
   durationSeconds?: number;
   onTimeUp?: () => void;
   onTimeOut?: () => void;
+  onCriticalThreshold?: () => void;
   isPaused?: boolean;
   isActive?: boolean;
   /** If true, play a tick sound each second in the final 5s. Default: true. */
@@ -29,6 +30,7 @@ export function TimerBar({
   durationSeconds,
   onTimeUp,
   onTimeOut,
+  onCriticalThreshold,
   isPaused = false,
   isActive = true,
   tickAudioEnabled = true,
@@ -70,6 +72,9 @@ export function TimerBar({
       // Low-time pulsating glow (< 20% remaining time)
       const pulseDelay = Math.max(0, totalMs * 0.8);
       const pulseTimer = setTimeout(() => {
+        if (onCriticalThreshold) {
+          onCriticalThreshold();
+        }
         pulseOpacity.value = withRepeat(
           withSequence(
             withTiming(0.4, { duration: 250 }),

@@ -66,8 +66,23 @@ const apiClient = axios.create({
 
 export interface UserMeResponse {
   userId?: string;
+  id?: string;
+  displayName?: string;
   currentStreak?: number;
   totalXp?: number;
+  xpTotal?: number;
+  elo?: Record<string, number>;
+  streak?: {
+    current: number;
+    freezesAvailable: number;
+    lastCompletedUTCDate?: string | null;
+  };
+  mascot?: {
+    activeCostume: string;
+    unlockedCostumes: string[];
+  };
+  lastActiveAt?: string | null;
+  currentLeague?: string;
   [key: string]: any;
 }
 
@@ -261,6 +276,20 @@ export const api = {
     return response.data;
   },
 
+  // ─── Mascot & Costumes ──────────────────────────────────────
+  getCostumeCatalog: async (): Promise<CostumeCatalogResponse> => {
+    const response = await apiClient.get('/mascot/costumes');
+    return response.data;
+  },
+  purchaseCostume: async (costumeId: string): Promise<PurchaseCostumeResponse> => {
+    const response = await apiClient.post('/mascot/costumes/purchase', { costumeId });
+    return response.data;
+  },
+  equipCostume: async (costumeId: string): Promise<EquipCostumeResponse> => {
+    const response = await apiClient.post('/mascot/costumes/equip', { costumeId });
+    return response.data;
+  },
+
   // ─── Learning Path / DAG ────────────────────────────────────
   getPathTree: async (): Promise<PathTreeResponse> => {
     const response = await apiClient.get('/path/tree');
@@ -271,6 +300,40 @@ export const api = {
     return response.data;
   },
 };
+
+// ─── Mascot & Costume Types ────────────────────────────────────
+
+export interface CostumeItem {
+  id: string;
+  name: string;
+  description: string;
+  priceXP: number;
+  icon: string;
+  category: 'HEAD' | 'FACE' | 'BACK';
+  isUnlocked: boolean;
+  isEquipped: boolean;
+}
+
+export interface CostumeCatalogResponse {
+  costumes: CostumeItem[];
+  activeCostume: string;
+  unlockedCostumes: string[];
+  xpBalance: number;
+}
+
+export interface PurchaseCostumeResponse {
+  success: boolean;
+  message: string;
+  unlockedCostumes: string[];
+  activeCostume: string;
+  xpBalance: number;
+}
+
+export interface EquipCostumeResponse {
+  success: boolean;
+  activeCostume: string;
+  unlockedCostumes: string[];
+}
 
 // ─── Path & DAG Types ──────────────────────────────────────────
 

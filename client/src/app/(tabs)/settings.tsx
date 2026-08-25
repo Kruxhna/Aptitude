@@ -21,8 +21,10 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import Slider from '@react-native-community/slider';
 import { useFeedback } from '../../services/FeedbackProvider';
+import { useMascot } from '../../mascot/MascotContext';
 import { colors, duo } from '../../theme';
 import { api } from '../../api';
 
@@ -61,7 +63,9 @@ function SectionHeader({ title }: { title: string }) {
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
+  const router = useRouter();
   const { preferences, updatePreferences, feedback } = useFeedback();
+  const mascot = useMascot();
 
   // Local slider state for smooth dragging (syncs on release)
   const [sliderValue, setSliderValue] = useState(preferences.soundVolume);
@@ -102,6 +106,27 @@ export default function SettingsScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      {/* ── Mascot & Wardrobe ────────────────────────────────────── */}
+      <SectionHeader title="SPRINTY COMPANION" />
+
+      <View style={styles.card}>
+        <TouchableOpacity
+          onPress={() => {
+            feedback.haptics.mediumTap();
+            router.push('/wardrobe' as any);
+          }}
+          activeOpacity={0.7}
+        >
+          <SettingsRow
+            icon="🤖"
+            label="SPRINTY Wardrobe & Cosmetics"
+            sublabel={`Active Skin: ${mascot.activeCostume.replace('_', ' ')}`}
+          >
+            <Text style={styles.chevron}>Customize ›</Text>
+          </SettingsRow>
+        </TouchableOpacity>
+      </View>
+
       {/* ── Haptics ────────────────────────────────────────────────── */}
       <SectionHeader title="FEEDBACK" />
 

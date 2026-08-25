@@ -21,9 +21,10 @@ import { TimerBar } from '../../components/TimerBar';
 import { QuizFeedback } from '../../components/QuizFeedback';
 import { StreakFlame } from '../../components/StreakFlame';
 import { ConfettiOverlay } from '../../components/ConfettiOverlay';
-import { SpriteAnimator } from '../../components/SpriteAnimator';
+import { SprintyMascot } from '../../components/SprintyMascot';
 import { colors, duo } from '../../theme';
 import { useFeedback } from '../../services/FeedbackProvider';
+import { useMascot } from '../../mascot/MascotContext';
 
 const PER_QUESTION_TIMERS: Record<string, number> = {
   verbal: 30,
@@ -36,6 +37,7 @@ export default function ActiveSprintScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
   const router = useRouter();
   const { feedback } = useFeedback();
+  const mascot = useMascot();
 
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<SprintSession | null>(null);
@@ -106,6 +108,7 @@ export default function ActiveSprintScreen() {
     setIsLastAnswerCorrect(correct);
 
     if (correct) {
+      mascot.setEmotion('EXCITED_JUMP', 2500);
       const nextStreak = streakCount + 1;
       setStreakCount(nextStreak);
 
@@ -116,6 +119,7 @@ export default function ActiveSprintScreen() {
         feedback.haptics.successNotification();
       }
     } else {
+      mascot.setEmotion('SAD_HEADSHAKE', 2500);
       setStreakCount(0);
     }
 
@@ -135,6 +139,7 @@ export default function ActiveSprintScreen() {
 
     setSelectedAnswer('TIMEOUT');
     setIsLastAnswerCorrect(false);
+    mascot.setEmotion('SAD_HEADSHAKE', 2500);
     setStreakCount(0);
     setShowFeedback(true);
 
@@ -195,6 +200,7 @@ export default function ActiveSprintScreen() {
     setSelectedAnswer(null);
     setEliminatedOptions([]);
     setActiveHintText(null);
+    mascot.setEmotion('IDLE_HOVER');
 
     if (session && currentIndex + 1 < session.questions.length) {
       setCurrentIndex((prev) => prev + 1);
@@ -255,12 +261,7 @@ export default function ActiveSprintScreen() {
     return (
       <View style={styles.centerContainer}>
         <Animated.View style={[styles.loadingRobot, loadingAnimStyle]}>
-          <SpriteAnimator
-            source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
-            style={styles.robotSprite}
-            frameCount={4}
-            fps={8}
-          />
+          <SprintyMascot size="lg" overrideEmotion="IDLE_HOVER" />
         </Animated.View>
         <Text style={styles.loadingText}>Fetching next questions...</Text>
       </View>
@@ -272,12 +273,7 @@ export default function ActiveSprintScreen() {
     return (
       <View style={styles.centerContainer}>
         <Animated.View style={[styles.loadingRobot, loadingAnimStyle]}>
-          <SpriteAnimator
-            source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
-            style={styles.robotSprite}
-            frameCount={4}
-            fps={8}
-          />
+          <SprintyMascot size="lg" overrideEmotion="EXCITED_JUMP" />
         </Animated.View>
         <Text style={styles.loadingText}>Scoring sprint results...</Text>
       </View>
@@ -321,11 +317,12 @@ export default function ActiveSprintScreen() {
         </View>
       </View>
 
-      {/* ── Dynamic Progress Timer Bar ── */}
+      {/* ── Dynamic Progress Timer Bar with Mascot Emotion Hook ── */}
       <TimerBar
         key={currentIndex}
         durationSeconds={timerSeconds}
         onTimeOut={handleTimeOut}
+        onCriticalThreshold={() => mascot.setEmotion('WORRIED_SWEAT', 6000)}
         isActive={selectedAnswer === null && !showFeedback}
       />
 

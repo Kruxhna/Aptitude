@@ -13,16 +13,26 @@ router.get('/api/users/me', async (req, res, next) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const previousLastActive = user.lastActiveAt || user.createdAt;
+    user.lastActiveAt = new Date();
+    await user.save();
+
     res.json({
       id: user._id,
       displayName: user.displayName,
       elo: user.elo,
       xpTotal: user.xpTotal,
+      currentLeague: user.currentLeague,
       streak: {
-        current: user.streak.current,
-        freezesAvailable: user.streak.freezesAvailable,
-        lastCompletedUTCDate: user.streak.lastCompletedUTCDate,
+        current: user.streak?.current ?? 0,
+        freezesAvailable: user.streak?.freezesAvailable ?? 1,
+        lastCompletedUTCDate: user.streak?.lastCompletedUTCDate ?? null,
       },
+      mascot: user.mascot || {
+        activeCostume: 'DEFAULT',
+        unlockedCostumes: ['DEFAULT'],
+      },
+      lastActiveAt: previousLastActive,
       learnModeStats: user.learnModeStats,
     });
   } catch (error) {

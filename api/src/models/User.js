@@ -63,6 +63,12 @@ const userSchema = new Schema({
     completedAt: { type: Date, default: Date.now },
     timesCompleted: { type: Number, default: 1 },
   }],
+  // ── Mascot Cosmetics ──
+  mascot: {
+    activeCostume: { type: String, default: 'DEFAULT' },
+    unlockedCostumes: { type: [String], default: ['DEFAULT'] },
+  },
+  lastActiveAt: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now },
 });
 
