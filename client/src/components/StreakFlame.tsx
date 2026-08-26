@@ -12,10 +12,14 @@ import Animated, {
 } from 'react-native-reanimated';
 
 interface StreakFlameProps {
-  streak: number;
+  streak?: number;
+  count?: number;
+  size?: 'sm' | 'md' | 'lg';
+  showLabel?: boolean;
 }
 
-export function StreakFlame({ streak }: StreakFlameProps) {
+export function StreakFlame({ streak: propStreak, count, size = 'md', showLabel = true }: StreakFlameProps) {
+  const streak = count ?? propStreak ?? 0;
   const scale = useSharedValue(1);
   const pulse = useSharedValue(1);
   const glow = useSharedValue(0);
