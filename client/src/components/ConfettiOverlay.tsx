@@ -8,6 +8,7 @@ import Animated, {
   Easing,
   runOnJS,
 } from 'react-native-reanimated';
+import { useAccessibility } from '../services/AccessibilityProvider';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -91,10 +92,19 @@ interface ConfettiOverlayProps {
 }
 
 export function ConfettiOverlay({ visible, streakCount, onDismiss }: ConfettiOverlayProps) {
-  const bannerScale = useSharedValue(0.5);
+  let isReducedMotion = false;
+  try {
+    const acc = useAccessibility();
+    isReducedMotion = acc.isReducedMotionActive;
+  } catch {
+    // Outside accessibility context
+  }
+
+  const bannerScale = useSharedValue(0.8);
   const bannerOpacity = useSharedValue(0);
 
   const particles = useMemo(() => {
+    if (isReducedMotion) return [];
     return Array.from({ length: 45 }).map((_, i) => ({
       id: i,
       startX: Math.random() * (SCREEN_WIDTH - 20) + 10,
@@ -103,15 +113,20 @@ export function ConfettiOverlay({ visible, streakCount, onDismiss }: ConfettiOve
       duration: Math.random() * 1200 + 1600,
       delay: Math.random() * 300,
     }));
-  }, [visible]);
+  }, [visible, isReducedMotion]);
 
   useEffect(() => {
     if (visible) {
-      bannerScale.value = withTiming(1, { duration: 350, easing: Easing.out(Easing.back(1.5)) });
-      bannerOpacity.value = withTiming(1, { duration: 250 });
+      if (isReducedMotion) {
+        bannerScale.value = withTiming(1, { duration: 100 });
+        bannerOpacity.value = withTiming(1, { duration: 100 });
+      } else {
+        bannerScale.value = withTiming(1, { duration: 350, easing: Easing.out(Easing.back(1.5)) });
+        bannerOpacity.value = withTiming(1, { duration: 250 });
+      }
 
       const autoDismiss = setTimeout(() => {
-        bannerOpacity.value = withTiming(0, { duration: 300 }, (finished) => {
+        bannerOpacity.value = withTiming(0, { duration: isReducedMotion ? 100 : 300 }, (finished) => {
           if (finished && onDismiss) {
             runOnJS(onDismiss)();
           }
@@ -120,10 +135,10 @@ export function ConfettiOverlay({ visible, streakCount, onDismiss }: ConfettiOve
 
       return () => clearTimeout(autoDismiss);
     } else {
-      bannerScale.value = 0.5;
+      bannerScale.value = isReducedMotion ? 1 : 0.8;
       bannerOpacity.value = 0;
     }
-  }, [visible]);
+  }, [visible, isReducedMotion]);
 
   const bannerStyle = useAnimatedStyle(() => ({
     transform: [{ scale: bannerScale.value }],
@@ -135,18 +150,19 @@ export function ConfettiOverlay({ visible, streakCount, onDismiss }: ConfettiOve
   return (
     <TouchableWithoutFeedback onPress={onDismiss}>
       <View style={styles.overlay} pointerEvents="box-none">
-        {/* Confetti Particles */}
-        {particles.map((p) => (
-          <ConfettiPiece
-            key={p.id}
-            index={p.id}
-            startX={p.startX}
-            color={p.color}
-            size={p.size}
-            duration={p.duration}
-            delay={p.delay}
-          />
-        ))}
+        {/* Confetti Particles (skipped if reduced motion is active) */}
+        {!isReducedMotion &&
+          particles.map((p) => (
+            <ConfettiPiece
+              key={p.id}
+              index={p.id}
+              startX={p.startX}
+              color={p.color}
+              size={p.size}
+              duration={p.duration}
+              delay={p.delay}
+            />
+          ))}
 
         {/* Milestone Celebration Banner */}
         <Animated.View style={[styles.bannerContainer, bannerStyle]}>
@@ -183,31 +199,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F172A',
     borderRadius: 24,
     borderWidth: 3,
-    borderColor: '#38BDF8',
-    paddingVertical: 18,
+    borderColor: '#F59E0B',
     paddingHorizontal: 28,
+    paddingVertical: 18,
     alignItems: 'center',
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    elevation: 25,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 20,
   },
   bannerEmoji: {
     fontSize: 32,
     marginBottom: 4,
   },
   bannerTitle: {
-    color: '#38BDF8',
     fontSize: 22,
     fontWeight: '900',
+    color: '#FFD700',
     letterSpacing: 1.5,
+    textAlign: 'center',
   },
   bannerSubtitle: {
+    fontSize: 14,
+    fontWeight: '800',
     color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 4,
     letterSpacing: 1,
+    marginTop: 4,
   },
 });

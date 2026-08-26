@@ -10,8 +10,9 @@ import Animated, {
   runOnJS,
   interpolateColor,
 } from 'react-native-reanimated';
-import { colors, duo } from '../theme';
 import { useFeedback } from '../services/FeedbackProvider';
+import { useAccessibility } from '../services/AccessibilityProvider';
+import { useTheme } from '../hooks/use-theme';
 
 interface TimerBarProps {
   durationMs?: number;
@@ -38,6 +39,15 @@ export function TimerBar({
   const progress = useSharedValue(1);
   const pulseOpacity = useSharedValue(1);
   const { feedback } = useFeedback();
+  const theme = useTheme();
+
+  let isReducedMotion = false;
+  try {
+    const acc = useAccessibility();
+    isReducedMotion = acc.isReducedMotionActive;
+  } catch {
+    // Outside accessibility provider
+  }
 
   const totalMs = durationMs || (durationSeconds ? durationSeconds * 1000 : 30000);
   const timeUpCallback = onTimeUp || onTimeOut;
@@ -75,14 +85,16 @@ export function TimerBar({
         if (onCriticalThreshold) {
           onCriticalThreshold();
         }
-        pulseOpacity.value = withRepeat(
-          withSequence(
-            withTiming(0.4, { duration: 250 }),
-            withTiming(1, { duration: 250 })
-          ),
-          -1,
-          true
-        );
+        if (!isReducedMotion) {
+          pulseOpacity.value = withRepeat(
+            withSequence(
+              withTiming(0.4, { duration: 250 }),
+              withTiming(1, { duration: 250 })
+            ),
+            -1,
+            true
+          );
+        }
       }, pulseDelay);
 
       // Warning haptic + audio at 5s remaining
@@ -114,31 +126,35 @@ export function TimerBar({
         tickIntervalsRef.current = [];
       };
     }
-  }, [totalMs, isPaused, isActive]);
+  }, [totalMs, isPaused, isActive, isReducedMotion]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    // 100% – 50%: Neon Green (#22C55E)
-    // 49% – 20%: Amber Yellow (#F59E0B)
-    // < 20%: Crimson Red (#EF4444)
     const bgColor = interpolateColor(
       progress.value,
       [0, 0.2, 0.5, 1],
-      ['#EF4444', '#EF4444', '#F59E0B', '#22C55E']
+      [theme.duoRed, theme.duoRed, theme.duoGold, theme.duoGreen]
     );
 
     return {
       width: `${progress.value * 100}%`,
       backgroundColor: bgColor,
-      opacity: progress.value < 0.2 ? pulseOpacity.value : 1,
+      opacity: progress.value < 0.2 && !isReducedMotion ? pulseOpacity.value : 1,
     };
   });
 
   return (
     <View
-      style={styles.track}
+      style={[
+        styles.track,
+        {
+          backgroundColor: theme.backgroundElement,
+          borderColor: theme.cardBorder,
+        },
+      ]}
       accessible={true}
       accessibilityRole="progressbar"
-      accessibilityLabel="Time remaining"
+      accessibilityLabel="Time remaining in sprint"
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(progress.value * 100) }}
     >
       <Animated.View style={[styles.fill, animatedStyle]} />
     </View>
@@ -147,9 +163,9 @@ export function TimerBar({
 
 const styles = StyleSheet.create({
   track: {
-    height: 8,
-    backgroundColor: '#E2E8F0',
+    height: 10,
     borderRadius: 8,
+    borderWidth: 1,
     overflow: 'hidden',
     width: '100%',
     marginVertical: 8,
