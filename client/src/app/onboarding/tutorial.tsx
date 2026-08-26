@@ -22,7 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { api } from '../../api';
-import { SpriteAnimator } from '../../components/SpriteAnimator';
+import { SprintyMascot } from '../../components/SprintyMascot';
 import { colors, duo } from '../../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -126,12 +126,7 @@ export default function TutorialScreen() {
         {index === 0 && (
           <View style={styles.stepContent}>
             <Animated.View entering={FadeInUp.delay(200).springify()}>
-              <SpriteAnimator
-                source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
-                style={styles.largeMascot}
-                frameCount={4}
-                fps={8}
-              />
+              <SprintyMascot size="lg" overrideEmotion="EXCITED_JUMP" />
             </Animated.View>
             <Animated.Text entering={FadeInUp.delay(500).springify()} style={styles.stepTitle}>
               {item.title}
@@ -145,6 +140,9 @@ export default function TutorialScreen() {
         {/* Step 2: Feature highlights */}
         {index === 1 && (
           <View style={styles.stepContent}>
+            <Animated.View entering={FadeInUp.delay(150).springify()} style={{ marginBottom: 12 }}>
+              <SprintyMascot size="md" overrideEmotion="IDLE_HOVER" />
+            </Animated.View>
             <View style={styles.featureCards}>
               {[
                 { icon: '🎯', label: 'Adaptive ELO', desc: 'Questions match your level' },
