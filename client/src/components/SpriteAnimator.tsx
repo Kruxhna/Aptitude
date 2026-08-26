@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, ImageSourcePropType, LayoutChangeEvent, Image } from 'react-native';
+import { useAccessibility } from '../services/AccessibilityProvider';
 
 interface SpriteAnimatorProps {
   source: ImageSourcePropType;
   frameCount: number;
   fps?: number;
   loop?: boolean;
+  reducedMotion?: boolean;
   style?: any;
 }
 
@@ -14,12 +16,28 @@ export function SpriteAnimator({
   frameCount,
   fps = 8,
   loop = true,
+  reducedMotion: propReducedMotion,
   style,
 }: SpriteAnimatorProps) {
+  let contextReducedMotion = false;
+  try {
+    const acc = useAccessibility();
+    contextReducedMotion = acc.isReducedMotionActive;
+  } catch {
+    // Outside accessibility context
+  }
+
+  const isReducedMotion = propReducedMotion ?? contextReducedMotion;
+
   const [frameIndex, setFrameIndex] = useState(0);
   const [frameSize, setFrameSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
+    if (isReducedMotion) {
+      setFrameIndex(0);
+      return;
+    }
+
     let currentFrame = 0;
     const interval = setInterval(() => {
       currentFrame++;
@@ -35,7 +53,7 @@ export function SpriteAnimator({
     }, 1000 / fps);
 
     return () => clearInterval(interval);
-  }, [frameCount, fps, loop, source]);
+  }, [frameCount, fps, loop, source, isReducedMotion]);
 
   // When source changes, reset to frame 0
   useEffect(() => {
