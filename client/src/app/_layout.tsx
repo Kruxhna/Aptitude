@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { api } from '../api';
 import { colors } from '../theme';
+import { initSyncQueueListener } from '../services/syncQueue';
+import { useUserStore } from '../stores/useUserStore';
 
 export default function RootLayout() {
   const router = useRouter();
@@ -11,6 +13,13 @@ export default function RootLayout() {
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
   useEffect(() => {
+    // 1. Initialize background offline sync queue listener
+    const unsubscribeSync = initSyncQueueListener();
+
+    // 2. Fetch fresh user profile in background
+    useUserStore.getState().fetchUserProfile().catch(() => {});
+
+    // 3. Check onboarding status
     async function checkOnboardingStatus() {
       try {
         const status = await api.getOnboardingStatus();
@@ -36,6 +45,10 @@ export default function RootLayout() {
     }
 
     checkOnboardingStatus();
+
+    return () => {
+      unsubscribeSync();
+    };
   }, []);
 
   if (checkingOnboarding) {

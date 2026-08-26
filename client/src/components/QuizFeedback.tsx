@@ -21,6 +21,7 @@ export interface QuizFeedbackProps {
   isCorrect: boolean;
   xp_gained?: number;
   explanation?: string;
+  strategyTip?: string | null;
   onContinue: () => void;
 }
 
@@ -29,6 +30,7 @@ export function QuizFeedback({
   isCorrect,
   xp_gained = 10,
   explanation,
+  strategyTip,
   onContinue,
 }: QuizFeedbackProps) {
   // Banner animations

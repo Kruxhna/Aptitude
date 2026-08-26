@@ -1,176 +1,230 @@
-import React, { useState } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
-  Pressable,
+  RefreshControl,
+  SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors, duo } from '../../theme';
+import { useUserStore } from '../../stores/useUserStore';
+import { usePathStore } from '../../stores/usePathStore';
 import { SpriteAnimator } from '../../components/SpriteAnimator';
+import { colors, duo } from '../../theme';
+import { PathNode, NodeState, SkillCategory } from '../../api';
 
-// ─── GATE Aptitude Skill Path Nodes ──────────────────────────
-const SKILL_NODES = [
+// ─── Default Skill Nodes for Fallback ─────────────────────────
+const DEFAULT_SKILL_NODES: PathNode[] = [
   {
     id: 'node-1',
-    title: 'Algebra & Ratios',
-    category: 'QUANTITATIVE',
-    color: '#FF4B4B',
-    darkColor: '#EA2B2B',
-    status: 'completed' as const,
-    offsetX: 0,
+    skill: 'QUANTITATIVE',
+    topic: 'Algebra & Ratios',
+    description: 'Master linear equations and ratios.',
+    questionCount: 5,
+    estimatedMinutes: 4,
+    state: 'COMPLETED',
+    isBranch: false,
+    position: { x: 0, y: 0 },
+    accuracy: 1.0,
   },
   {
     id: 'node-2',
-    title: 'Data Interpretation',
-    category: 'ANALYTICAL',
-    color: '#1CB0F6',
-    darkColor: '#1899D6',
-    status: 'completed' as const,
-    offsetX: 50,
+    skill: 'VERBAL',
+    topic: 'Vocabulary & Context',
+    description: 'Core word power and contextual synonyms.',
+    questionCount: 5,
+    estimatedMinutes: 3,
+    state: 'CURRENT',
+    isBranch: false,
+    position: { x: 40, y: 1 },
   },
   {
     id: 'node-3',
-    title: 'Spatial Transforms',
-    category: 'SPATIAL',
-    color: '#FFC800',
-    darkColor: '#E5B300',
-    status: 'active' as const,
-    offsetX: 0,
+    skill: 'LOGICAL',
+    topic: 'Deductive Syllogisms',
+    description: 'Venn deductions and logical inference.',
+    questionCount: 5,
+    estimatedMinutes: 4,
+    state: 'LOCKED',
+    isBranch: false,
+    position: { x: -40, y: 2 },
   },
   {
     id: 'node-4',
-    title: 'Deductive Logic',
-    category: 'LOGICAL',
-    color: '#CE82FF',
-    darkColor: '#A855F7',
-    status: 'locked' as const,
-    offsetX: -50,
+    skill: 'SPATIAL',
+    topic: '2D & 3D Rotations',
+    description: 'Visual symmetry, mirrors, and projections.',
+    questionCount: 5,
+    estimatedMinutes: 4,
+    state: 'LOCKED',
+    isBranch: false,
+    position: { x: 30, y: 3 },
   },
   {
     id: 'node-5',
-    title: 'Verbal Grammar',
-    category: 'VERBAL',
-    color: '#58CC02',
-    darkColor: '#58A700',
-    status: 'locked' as const,
-    offsetX: 0,
-  },
-  {
-    id: 'node-6',
-    title: 'Probability & Stats',
-    category: 'QUANTITATIVE',
-    color: '#FF9600',
-    darkColor: '#CD7900',
-    status: 'locked' as const,
-    offsetX: 50,
+    skill: 'QUANTITATIVE',
+    topic: 'Speed & Time',
+    description: 'Relative speed, trains, and circular tracks.',
+    questionCount: 5,
+    estimatedMinutes: 5,
+    state: 'LOCKED',
+    isBranch: false,
+    position: { x: 0, y: 4 },
   },
 ];
 
-// ─── 3D Chunky Circle Button (Duolingo's Signature) ──────────
+const SKILL_ICONS: Record<string, string> = {
+  QUANTITATIVE: '📐',
+  VERBAL: '📖',
+  LOGICAL: '🧩',
+  SPATIAL: '🎲',
+};
+
+const SKILL_COLORS: Record<string, { bg: string; dark: string }> = {
+  QUANTITATIVE: { bg: colors.duoRed, dark: colors.duoRedDark },
+  VERBAL: { bg: colors.duoPurple, dark: '#A855F7' },
+  LOGICAL: { bg: colors.duoBlue, dark: '#1899D6' },
+  SPATIAL: { bg: colors.duoGold, dark: colors.duoGoldDark },
+};
+
 function ChunkyNode({
   node,
   onPress,
 }: {
-  node: (typeof SKILL_NODES)[0];
+  node: PathNode;
   onPress: () => void;
 }) {
-  const [pressed, setPressed] = useState(false);
-  const isLocked = node.status === 'locked';
-  const isActive = node.status === 'active';
-  const isCompleted = node.status === 'completed';
+  const isCompleted = node.state === 'COMPLETED' || node.state === 'PERFECT';
+  const isCurrent = node.state === 'CURRENT';
+  const isLocked = node.state === 'LOCKED';
 
-  const bgColor = isLocked ? '#E5E5E5' : node.color;
-  const shadowColor = isLocked ? '#AFAFAF' : node.darkColor;
+  const skillColor = SKILL_COLORS[node.skill] || { bg: colors.duoGreen, dark: colors.duoGreenDark };
+
+  const bg = isLocked ? '#E5E5E5' : isCompleted ? colors.duoGreen : skillColor.bg;
+  const dark = isLocked ? '#C4C4C4' : isCompleted ? colors.duoGreenDark : skillColor.dark;
+  const icon = isLocked ? '🔒' : isCompleted ? '✓' : SKILL_ICONS[node.skill] || '⭐';
 
   return (
-    <View style={[styles.nodeWrapper, { transform: [{ translateX: node.offsetX }] }]}>
-      {/* "START" tooltip for active node */}
-      {isActive && (
+    <View style={[styles.nodeWrapper, { transform: [{ translateX: node.position?.x || 0 }] }]}>
+      {isCurrent && (
         <View style={styles.tooltip}>
-          <Text style={styles.tooltipText}>START</Text>
+          <Text style={styles.tooltipText}>START HERE</Text>
           <View style={styles.tooltipArrow} />
         </View>
       )}
 
-      {/* Glowing ring for active */}
-      <View
-        style={[
-          styles.outerRing,
-          isActive && {
-            borderWidth: 4,
-            borderColor: node.color,
-            backgroundColor: `${node.color}22`,
-          },
-        ]}
+      <TouchableOpacity
+        activeOpacity={isLocked ? 1 : 0.85}
+        disabled={isLocked}
+        onPress={onPress}
       >
-        <Pressable
-          onPressIn={() => !isLocked && setPressed(true)}
-          onPressOut={() => {
-            setPressed(false);
-            if (!isLocked) onPress();
-          }}
-          disabled={isLocked}
-          style={[
-            styles.chunkyCircle,
-            {
-              backgroundColor: bgColor,
-              borderBottomColor: shadowColor,
-              borderBottomWidth: pressed ? 1 : 6,
-              marginTop: pressed ? 5 : 0,
-              opacity: isLocked ? 0.6 : 1,
-            },
-          ]}
-        >
-          {isCompleted ? (
-            <Text style={styles.nodeIcon}>✓</Text>
-          ) : isLocked ? (
-            <Text style={[styles.nodeIcon, { fontSize: 24 }]}>🔒</Text>
-          ) : (
-            <Text style={styles.nodeIcon}>⭐</Text>
-          )}
-        </Pressable>
-      </View>
+        <View style={[styles.outerRing, isCurrent && { borderColor: colors.duoGold, borderWidth: 4 }]}>
+          <View
+            style={[
+              styles.chunkyCircle,
+              {
+                backgroundColor: bg,
+                borderBottomColor: dark,
+              },
+            ]}
+          >
+            <Text style={styles.nodeIcon}>{icon}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
 
-      {/* Label */}
       <Text style={[styles.nodeTitle, isLocked && styles.nodeTitleLocked]}>
-        {node.title}
+        {node.topic}
       </Text>
-      <Text style={[styles.nodeCategory, isLocked && styles.nodeTitleLocked]}>
-        {node.category}
-      </Text>
+      <Text style={styles.nodeCategory}>{node.skill}</Text>
     </View>
   );
 }
 
-// ─── Home Screen ─────────────────────────────────────────────
 export default function HomeScreen() {
   const router = useRouter();
 
+  // Granular atomic Zustand selectors
+  const streakCount = useUserStore((s) => s.currentStreak);
+  const totalXp = useUserStore((s) => s.totalXp);
+  const userElo = useUserStore((s) => s.elo);
+  const isPendingSync = useUserStore((s) => s.isPendingSync);
+  const fetchUserProfile = useUserStore((s) => s.fetchUserProfile);
+
+  const storeNodes = usePathStore((s) => s.nodes);
+  const fetchPathTree = usePathStore((s) => s.fetchPathTree);
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    fetchPathTree().catch(() => {});
+    fetchUserProfile().catch(() => {});
+  }, [fetchPathTree, fetchUserProfile]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchPathTree(true).catch(() => {}),
+      fetchUserProfile().catch(() => {}),
+    ]);
+    setRefreshing(false);
+  }, [fetchPathTree, fetchUserProfile]);
+
+  const nodes = storeNodes.length > 0 ? storeNodes : DEFAULT_SKILL_NODES;
+  const completedCount = nodes.filter(
+    (n) => n.state === 'COMPLETED' || n.state === 'PERFECT' || n.state === 'REVIEW'
+  ).length;
+  const progressPct = Math.round((completedCount / nodes.length) * 100);
+
+  const avgElo = Math.round(
+    ((userElo.verbal || 1000) +
+      (userElo.quantitative || 1000) +
+      (userElo.logical || 1000) +
+      (userElo.spatial || 1000)) /
+      4
+  );
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* ─── Top Stat Header ─── */}
       <View style={styles.topBar}>
         <View style={styles.statPill}>
           <Text style={styles.statEmoji}>🔥</Text>
-          <Text style={[styles.statNum, { color: '#FF9600' }]}>5</Text>
+          <Text style={[styles.statNum, { color: '#FF9600' }]}>{streakCount}</Text>
         </View>
         <View style={styles.statPill}>
           <Text style={styles.statEmoji}>⚡</Text>
-          <Text style={[styles.statNum, { color: '#FFC800' }]}>2,450</Text>
+          <Text style={[styles.statNum, { color: '#FFC800' }]}>
+            {totalXp.toLocaleString()}
+          </Text>
         </View>
         <View style={styles.statPill}>
           <Text style={styles.statEmoji}>🎯</Text>
-          <Text style={[styles.statNum, { color: '#1CB0F6' }]}>1420</Text>
+          <Text style={[styles.statNum, { color: '#1CB0F6' }]}>{avgElo}</Text>
         </View>
       </View>
+
+      {/* Offline Pending Sync Banner */}
+      {isPendingSync && (
+        <View style={styles.syncBanner}>
+          <Text style={styles.syncBannerText}>
+            ☁️ Pending offline sync — will update when back online
+          </Text>
+        </View>
+      )}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
+        }
       >
         {/* ─── Mascot + Speech Bubble ─── */}
         <View style={styles.mascotRow}>
@@ -199,9 +253,11 @@ export default function HomeScreen() {
 
           {/* Progress bar */}
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: '60%' }]} />
+            <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
           </View>
-          <Text style={styles.progressLabel}>60% complete · 36/60 XP today</Text>
+          <Text style={styles.progressLabel}>
+            {progressPct}% complete · {completedCount}/{nodes.length} lessons
+          </Text>
 
           {/* 3D Start Button */}
           <TouchableOpacity
@@ -223,7 +279,7 @@ export default function HomeScreen() {
           {/* Vertical connector track */}
           <View style={styles.verticalTrack} />
 
-          {SKILL_NODES.map((node) => (
+          {nodes.map((node) => (
             <ChunkyNode
               key={node.id}
               node={node}
@@ -232,7 +288,7 @@ export default function HomeScreen() {
           ))}
         </View>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -264,6 +320,18 @@ const styles = StyleSheet.create({
   },
   statNum: {
     fontSize: 17,
+    fontWeight: '700',
+  },
+
+  syncBanner: {
+    backgroundColor: '#FEF3C7',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+  },
+  syncBannerText: {
+    color: '#B45309',
+    fontSize: 11,
     fontWeight: '700',
   },
 

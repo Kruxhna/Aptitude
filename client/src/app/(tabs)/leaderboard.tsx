@@ -1,72 +1,80 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
-import { api, LeaderboardResponse } from '../../api';
+import { useLeaderboardStore } from '../../stores/useLeaderboardStore';
 import { colors, duo } from '../../theme';
 
 const MOCK_LEADERBOARD = [
-  { rank: 1, name: 'VINEET', xp: 1520 },
-  { rank: 2, name: 'PRIYA', xp: 1480 },
-  { rank: 3, name: 'ALEX', xp: 1430 },
-  { rank: 4, name: 'SIDDHARTH', xp: 1360, isUser: true },
-  { rank: 5, name: 'RIYA', xp: 1290 },
-  { rank: 6, name: 'KARAN', xp: 1210 },
+  { rank: 1, displayName: 'VINEET', xp: 1520, isCurrentUser: false },
+  { rank: 2, displayName: 'PRIYA', xp: 1480, isCurrentUser: false },
+  { rank: 3, displayName: 'ALEX', xp: 1430, isCurrentUser: false },
+  { rank: 4, displayName: 'SIDDHARTH (YOU)', xp: 1360, isCurrentUser: true },
+  { rank: 5, displayName: 'RIYA', xp: 1290, isCurrentUser: false },
+  { rank: 6, displayName: 'KARAN', xp: 1210, isCurrentUser: false },
 ];
 
-const RANK_MEDALS = ['👑', '🥈', '🥉'];
+const RANK_MEDALS = ['🥇', '🥈', '🥉'];
 
 export default function LeaderboardScreen() {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<LeaderboardResponse | null>(null);
+  // Granular atomic selectors
+  const leaderboard = useLeaderboardStore((s) => s.leaderboard);
+  const currentLeague = useLeaderboardStore((s) => s.currentLeague);
+  const isLoading = useLeaderboardStore((s) => s.isLoading);
+  const fetchLeaderboard = useLeaderboardStore((s) => s.fetchLeaderboard);
 
   useEffect(() => {
-    fetchLeaderboard();
-  }, []);
+    fetchLeaderboard().catch(() => {});
+  }, [fetchLeaderboard]);
 
-  const fetchLeaderboard = async () => {
-    try {
-      setLoading(true);
-      const res = await api.getLeaderboard();
-      setData(res);
-    } catch {
-      // fallback to mock
-    } finally {
-      setLoading(false);
-    }
+  const onRefresh = async () => {
+    await fetchLeaderboard(true);
   };
 
-  const list =
-    data?.leaderboard && data.leaderboard.length > 0
-      ? data.leaderboard.map((item: any, idx: number) => ({
-          rank: item.rank || idx + 1,
-          name:
-            item.userId === '000000000000000000000001'
-              ? 'SIDDHARTH'
-              : `USER ${(item.userId || '').slice(-4).toUpperCase()}`,
-          xp: item.xp,
-          isUser: item.userId === '000000000000000000000001',
-        }))
-      : MOCK_LEADERBOARD;
+  const list = leaderboard && leaderboard.length > 0 ? leaderboard : (MOCK_LEADERBOARD as any);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.backgroundSoft }]}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl
+          refreshing={isLoading}
+          onRefresh={onRefresh}
+          tintColor={colors.primary}
+        />
+      }
+    >
       {/* ── League Banner (Duolingo-style) ── */}
-      <View style={styles.leagueBanner}>
+      <View
+        style={[
+          styles.leagueBanner,
+          {
+            backgroundColor: colors.card,
+            borderColor: colors.cardBorder,
+            borderBottomColor: '#D5D5D5',
+          },
+        ]}
+      >
         <Text style={styles.leagueIcon}>🛡️</Text>
         <View>
-          <Text style={styles.leagueName}>TITAN LEAGUE</Text>
-          <Text style={styles.leagueSub}>Top 10 advance · Reset in 4 days</Text>
+          <Text style={[styles.leagueName, { color: colors.duoGoldDark }]}>
+            {currentLeague?.toUpperCase() || 'BRONZE'} LEAGUE
+          </Text>
+          <Text style={[styles.leagueSub, { color: colors.textMuted }]}>
+            Top 10 advance · Weekly Reset in 4 days
+          </Text>
         </View>
       </View>
 
       {/* ── Leaderboard List ── */}
       <View style={styles.list}>
-        {list.map((item, idx) => {
-          const isUser = item.isUser || item.name === 'SIDDHARTH';
+        {list.map((item: any, idx: number) => {
+          const isUser = Boolean(item.isCurrentUser);
           const medal = idx < 3 ? RANK_MEDALS[idx] : null;
 
           return (
@@ -74,9 +82,9 @@ export default function LeaderboardScreen() {
               key={idx}
               style={[
                 styles.row,
-                isUser && styles.rowUser,
-                // 3D depth on each row
                 {
+                  backgroundColor: isUser ? colors.primary : colors.card,
+                  borderColor: isUser ? colors.primaryDark : colors.cardBorder,
                   borderBottomWidth: duo.depthCard,
                   borderBottomColor: isUser ? colors.primaryDark : '#D5D5D5',
                 },
@@ -87,7 +95,7 @@ export default function LeaderboardScreen() {
                 {medal ? (
                   <Text style={styles.medal}>{medal}</Text>
                 ) : (
-                  <Text style={[styles.rankNum, isUser && styles.textWhite]}>
+                  <Text style={[styles.rankNum, isUser ? styles.textWhite : { color: colors.text }]}>
                     {item.rank}
                   </Text>
                 )}
@@ -97,26 +105,54 @@ export default function LeaderboardScreen() {
               <View
                 style={[
                   styles.avatar,
-                  { backgroundColor: isUser ? 'rgba(255,255,255,0.3)' : '#F7F7F7' },
+                  {
+                    backgroundColor: isUser
+                      ? 'rgba(255,255,255,0.3)'
+                      : colors.backgroundElement,
+                  },
                 ]}
               >
-                <Text style={styles.avatarText}>
-                  {item.name.charAt(0)}
+                <Text style={styles.avatarEmoji}>
+                  {item.activeCostume === 'SPACE_HELMET'
+                    ? '🚀'
+                    : item.activeCostume === 'WIZARD_HAT'
+                    ? '🧙'
+                    : item.activeCostume === 'GOLDEN_CROWN'
+                    ? '👑'
+                    : '🤖'}
                 </Text>
               </View>
 
               {/* Name */}
               <Text
-                style={[styles.name, isUser && styles.textWhite]}
-                numberOfLines={1}
+                style={[
+                  styles.name,
+                  isUser ? styles.nameUser : { color: colors.text },
+                ]}
               >
-                {item.name}
+                {item.displayName || 'GATE Aspirant'}
               </Text>
 
-              {/* XP */}
-              <Text style={[styles.xp, isUser && styles.textWhite]}>
-                {item.xp} XP
-              </Text>
+              {/* XP Pill */}
+              <View
+                style={[
+                  styles.xpPill,
+                  {
+                    backgroundColor: isUser
+                      ? 'rgba(255,255,255,0.2)'
+                      : colors.backgroundElement,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.xpText,
+                    isUser ? styles.textWhite : { color: colors.duoGoldDark },
+                  ]}
+                >
+                  ⚡ {item.xp || 0} XP
+                </Text>
+              </View>
             </View>
           );
         })}
@@ -128,101 +164,86 @@ export default function LeaderboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     padding: 16,
     paddingBottom: 40,
   },
-
-  // ── League Banner ──
   leagueBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
     borderRadius: duo.radiusCard,
     borderWidth: 2,
-    borderColor: colors.cardBorder,
-    borderBottomWidth: duo.depthCard + 2,
-    borderBottomColor: '#D5D5D5',
-    padding: 20,
-    marginBottom: 20,
-    gap: 16,
+    borderBottomWidth: 4,
+    padding: 16,
+    gap: 14,
+    marginBottom: 16,
   },
   leagueIcon: {
-    fontSize: 40,
+    fontSize: 36,
   },
   leagueName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
     letterSpacing: 0.5,
   },
   leagueSub: {
-    fontSize: duo.fontCaption,
-    fontWeight: '500',
-    color: colors.textMuted,
+    fontSize: 12,
     marginTop: 2,
   },
-
-  // ── List ──
   list: {
     gap: 10,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
     borderRadius: duo.radiusCard,
     borderWidth: 2,
-    borderColor: colors.cardBorder,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 12,
   },
-  rowUser: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primaryDark,
-  },
-
   rankCol: {
-    width: 28,
+    width: 32,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  medal: {
+    fontSize: 22,
   },
   rankNum: {
     fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
+    fontWeight: '800',
   },
-  medal: {
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarEmoji: {
     fontSize: 20,
   },
-
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 12,
-  },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textMuted,
-  },
-
   name: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  xp: {
     fontSize: 15,
     fontWeight: '700',
-    color: colors.textMuted,
+  },
+  nameUser: {
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
   textWhite: {
     color: '#FFFFFF',
+  },
+  xpPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  xpText: {
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

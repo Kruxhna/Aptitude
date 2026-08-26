@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  Image,
   TouchableOpacity,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,7 +15,10 @@ import Animated, {
   withSequence,
   Easing,
 } from 'react-native-reanimated';
-import { api, Question, SprintSession } from '../../api';
+import { api, Question, SprintMode, SprintSubmissionResponse } from '../../api';
+import { useQuizStore } from '../../stores/useQuizStore';
+import { useUserStore } from '../../stores/useUserStore';
+import { enqueueOfflineSprint, isNetworkOnline } from '../../services/syncQueue';
 import { QuestionCard } from '../../components/QuestionCard';
 import { TimerBar } from '../../components/TimerBar';
 import { QuizFeedback } from '../../components/QuizFeedback';
@@ -31,47 +33,62 @@ const PER_QUESTION_TIMERS: Record<string, number> = {
 };
 
 export default function ActiveSprintScreen() {
-  const { type } = useLocalSearchParams<{ type: string }>();
+  const { type, mode: paramMode } = useLocalSearchParams<{ type: string; mode?: string }>();
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState<SprintSession | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [streakCount, setStreakCount] = useState(0);
+  const [offlineToastVisible, setOfflineToastVisible] = useState(false);
 
-  // Feedback banner state
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [isLastAnswerCorrect, setIsLastAnswerCorrect] = useState(true);
+  // Granular atomic Zustand selectors
+  const session = useQuizStore((s) => s.session);
+  const currentIndex = useQuizStore((s) => s.currentIndex);
+  const selectedAnswer = useQuizStore((s) => s.selectedAnswer);
+  const isAnswered = useQuizStore((s) => s.isAnswered);
+  const isLastAnswerCorrect = useQuizStore((s) => s.isLastAnswerCorrect);
+  const sessionStreak = useQuizStore((s) => s.sessionStreak);
+  const hintsRemaining = useQuizStore((s) => s.hintsRemaining);
+  const eliminatedOptions = useQuizStore((s) => s.eliminatedOptions);
+  const activeHintText = useQuizStore((s) => s.activeHintText);
+  const showFeedback = useQuizStore((s) => s.showFeedback);
+  const isSubmitting = useQuizStore((s) => s.isSubmitting);
+  const responses = useQuizStore((s) => s.responses);
+
+  // Actions
+  const initSession = useQuizStore((s) => s.initSession);
+  const submitOptionAnswer = useQuizStore((s) => s.submitOptionAnswer);
+  const timeOutQuestion = useQuizStore((s) => s.timeOutQuestion);
+  const useHint = useQuizStore((s) => s.useHint);
+  const skipQuestion = useQuizStore((s) => s.skipQuestion);
+  const advanceToNextQuestion = useQuizStore((s) => s.advanceToNextQuestion);
+  const setSubmitting = useQuizStore((s) => s.setSubmitting);
+  const setSubmissionResult = useQuizStore((s) => s.setSubmissionResult);
 
   // Horizontal fade-in animation for questions
   const questionOpacity = useSharedValue(1);
   const questionTranslateX = useSharedValue(0);
-
-  const responsesRef = useRef<Array<{ questionId: string; answer: any; timeMs: number }>>([]);
   const questionStartTime = useRef<number>(Date.now());
 
   useEffect(() => {
     fetchSprint();
-  }, [type]);
+  }, [type, paramMode]);
 
   const triggerQuestionEntryAnimation = () => {
     questionOpacity.value = 0;
-    questionTranslateX.value = 80;
-    questionOpacity.value = withTiming(1, { duration: 350, easing: Easing.out(Easing.quad) });
-    questionTranslateX.value = withTiming(0, { duration: 350, easing: Easing.out(Easing.quad) });
+    questionTranslateX.value = 60;
+    questionOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
+    questionTranslateX.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
   };
 
   const fetchSprint = async () => {
     try {
       setLoading(true);
-      const data = await api.getSprint(type || 'standard');
-      setSession(data);
+      const sprintMode = (paramMode === 'learn' ? 'learn' : 'test') as SprintMode;
+      const data = await api.getSprint(type || 'standard', sprintMode);
+      initSession(data, type || 'standard', sprintMode);
       questionStartTime.current = Date.now();
       triggerQuestionEntryAnimation();
     } catch (err: any) {
-      // Silently fail, loading state will show
+      console.warn('[ActiveSprintScreen] Error loading sprint:', err);
     } finally {
       setLoading(false);
     }
@@ -83,73 +100,199 @@ export default function ActiveSprintScreen() {
     : 30;
 
   const handleAnswerSubmit = (answer: any) => {
-    if (selectedAnswer !== null || showFeedback) return;
-
-    setSelectedAnswer(answer);
+    if (selectedAnswer !== null || showFeedback || isAnswered) return;
     const timeSpent = Math.max(100, Date.now() - questionStartTime.current);
-
-    const correct = currentQuestion?.correctAnswer !== undefined
-      ? answer === currentQuestion.correctAnswer
-      : answer !== 'TIMEOUT';
-
-    setIsLastAnswerCorrect(correct);
-    setStreakCount(prev => correct ? prev + 1 : 0);
-    setShowFeedback(true);
-
-    if (currentQuestion) {
-      responsesRef.current.push({
-        questionId: currentQuestion._id || currentQuestion.id,
-        answer,
-        timeMs: timeSpent,
-      });
-    }
+    submitOptionAnswer(answer, timeSpent);
   };
 
   const handleTimeOut = () => {
-    if (selectedAnswer !== null || showFeedback) return;
-
-    setSelectedAnswer('TIMEOUT');
-    setIsLastAnswerCorrect(false);
-    setStreakCount(0);
-    setShowFeedback(true);
-
-    if (currentQuestion) {
-      responsesRef.current.push({
-        questionId: currentQuestion._id || currentQuestion.id,
-        answer: null,
-        timeMs: timerSeconds * 1000,
-      });
-    }
+    if (selectedAnswer !== null || showFeedback || isAnswered) return;
+    timeOutQuestion(timerSeconds * 1000);
   };
 
-  const advanceToNext = () => {
-    setShowFeedback(false);
-    setSelectedAnswer(null);
+  const handleUseHint = () => {
+    if (hintsRemaining <= 0 || selectedAnswer !== null || showFeedback) return;
+    useHint();
+  };
 
-    if (session && currentIndex + 1 < session.questions.length) {
-      setCurrentIndex(prev => prev + 1);
+  const handleSkipQuestion = () => {
+    if (selectedAnswer !== null || showFeedback) return;
+    const timeSpent = Math.max(100, Date.now() - questionStartTime.current);
+    skipQuestion(timeSpent);
+    handleAdvance();
+  };
+
+  const handleAdvance = () => {
+    const { isFinished } = advanceToNextQuestion();
+    if (isFinished) {
+      finishSprint();
+    } else {
       questionStartTime.current = Date.now();
       triggerQuestionEntryAnimation();
-    } else {
-      finishSprint();
     }
   };
 
   const finishSprint = async () => {
-    if (!session || submitting) return;
+    if (!session || isSubmitting) return;
+
     try {
       setSubmitting(true);
+      const online = await isNetworkOnline();
+
+      if (!online) {
+        // Offline flow: Package to offline queue and compute local optimistic submission
+        const totalCorrect = responses.filter((r) => {
+          const q = session.questions.find(
+            (item) => item._id === r.questionId || item.id === r.questionId
+          );
+          return q?.correctAnswer !== undefined ? r.answer === q.correctAnswer : false;
+        }).length;
+
+        const totalQ = session.questions.length;
+        const accuracy = totalQ > 0 ? totalCorrect / totalQ : 0;
+        const xpEarned = totalCorrect * 15;
+
+        await enqueueOfflineSprint({
+          sprintId: session.sprintId || session.id || `sprint_${Date.now()}`,
+          type: type || 'standard',
+          responses,
+          totalQuestions: totalQ,
+          totalCorrect,
+          optimisticXp: xpEarned,
+        });
+
+        const offlineResult: SprintSubmissionResponse = {
+          message: 'Completed Offline — Queued for sync',
+          mode: 'test',
+          accuracy,
+          totalCorrect,
+          totalQuestions: totalQ,
+          xpEarned,
+          xpMultiplier: 1.0,
+          xpTotal: useUserStore.getState().totalXp,
+          streak: {
+            current: useUserStore.getState().currentStreak,
+            freezesAvailable: 1,
+          },
+          eloBefore: useUserStore.getState().elo,
+          eloAfter: useUserStore.getState().elo,
+          eloDeltas: {},
+          ratingDeltas: {},
+          results: session.questions.map((q, idx) => {
+            const resp = responses[idx];
+            const correct =
+              q.correctAnswer !== undefined ? resp?.answer === q.correctAnswer : false;
+            return {
+              questionId: q._id || q.id,
+              correct,
+              userAnswer: resp?.answer ?? 'N/A',
+              correctAnswer: q.correctAnswer ?? 'N/A',
+              explanation: q.explanation || 'Reviewed offline.',
+              timeMs: resp?.timeMs || 5000,
+              skill: q.skill,
+              strategyTip: q.strategyTip,
+            };
+          }),
+        };
+
+        setSubmissionResult(offlineResult);
+        setOfflineToastVisible(true);
+
+        setTimeout(() => {
+          setSubmitting(false);
+          router.replace({
+            pathname: '/sprint/results' as any,
+            params: { data: JSON.stringify(offlineResult) },
+          });
+        }, 800);
+        return;
+      }
+
+      // Online flow
       const submissionResult = await api.submitSprint({
-        sprintId: session.sprintId || session.id,
-        answers: responsesRef.current,
-      } as any);
+        sprintId: session.sprintId || session.id || '',
+        responses,
+      });
+
+      // Update user store with confirmed backend stats
+      if (submissionResult.xpTotal) {
+        useUserStore.getState().setUserFromResponse({
+          xpTotal: submissionResult.xpTotal,
+          streak: submissionResult.streak,
+          elo: submissionResult.eloAfter,
+        });
+      }
+
+      setSubmissionResult(submissionResult);
+      setSubmitting(false);
 
       router.replace({
         pathname: '/sprint/results' as any,
         params: { data: JSON.stringify(submissionResult) },
       });
-    } catch {
+    } catch (err) {
+      console.warn('[finishSprint] API error, saving to offline queue:', err);
+      const totalCorrect = responses.filter((r) => {
+        const q = session.questions.find(
+          (item) => item._id === r.questionId || item.id === r.questionId
+        );
+        return q?.correctAnswer !== undefined ? r.answer === q.correctAnswer : false;
+      }).length;
+
+      const totalQ = session.questions.length;
+      const accuracy = totalQ > 0 ? totalCorrect / totalQ : 0;
+      const xpEarned = totalCorrect * 15;
+
+      await enqueueOfflineSprint({
+        sprintId: session.sprintId || session.id || `sprint_${Date.now()}`,
+        type: type || 'standard',
+        responses,
+        totalQuestions: totalQ,
+        totalCorrect,
+        optimisticXp: xpEarned,
+      });
+
+      const fallbackResult: SprintSubmissionResponse = {
+        message: 'Saved offline — syncing when back online',
+        mode: 'test',
+        accuracy,
+        totalCorrect,
+        totalQuestions: totalQ,
+        xpEarned,
+        xpMultiplier: 1.0,
+        xpTotal: useUserStore.getState().totalXp,
+        streak: {
+          current: useUserStore.getState().currentStreak,
+          freezesAvailable: 1,
+        },
+        eloBefore: useUserStore.getState().elo,
+        eloAfter: useUserStore.getState().elo,
+        eloDeltas: {},
+        ratingDeltas: {},
+        results: session.questions.map((q, idx) => {
+          const resp = responses[idx];
+          const correct =
+            q.correctAnswer !== undefined ? resp?.answer === q.correctAnswer : false;
+          return {
+            questionId: q._id || q.id,
+            correct,
+            userAnswer: resp?.answer ?? 'N/A',
+            correctAnswer: q.correctAnswer ?? 'N/A',
+            explanation: q.explanation || 'Reviewed offline.',
+            timeMs: resp?.timeMs || 5000,
+            skill: q.skill,
+            strategyTip: q.strategyTip,
+          };
+        }),
+      };
+
+      setSubmissionResult(fallbackResult);
       setSubmitting(false);
+
+      router.replace({
+        pathname: '/sprint/results' as any,
+        params: { data: JSON.stringify(fallbackResult) },
+      });
     }
   };
 
@@ -158,11 +301,10 @@ export default function ActiveSprintScreen() {
     transform: [{ translateX: questionTranslateX.value }],
   }));
 
-  // Loading hover animation
   const loadingHoverY = useSharedValue(0);
 
   useEffect(() => {
-    if (loading || submitting) {
+    if (loading || isSubmitting) {
       loadingHoverY.value = withRepeat(
         withSequence(
           withTiming(-15, { duration: 1000, easing: Easing.inOut(Easing.sin) }),
@@ -174,7 +316,7 @@ export default function ActiveSprintScreen() {
     } else {
       loadingHoverY.value = 0;
     }
-  }, [loading, submitting]);
+  }, [loading, isSubmitting]);
 
   const loadingAnimStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: loadingHoverY.value }],
@@ -183,13 +325,13 @@ export default function ActiveSprintScreen() {
   // ── Loading State ──
   if (loading || !session) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
         <Animated.View style={[styles.loadingRobot, loadingAnimStyle]}>
           <SpriteAnimator
             source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
-            style={styles.robotSprite}
             frameCount={4}
             fps={8}
+            style={{ width: 80, height: 80 }}
           />
         </Animated.View>
         <Text style={styles.loadingText}>Fetching next questions...</Text>
@@ -198,18 +340,20 @@ export default function ActiveSprintScreen() {
   }
 
   // ── Submitting State ──
-  if (submitting) {
+  if (isSubmitting) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
         <Animated.View style={[styles.loadingRobot, loadingAnimStyle]}>
           <SpriteAnimator
-            source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
-            style={styles.robotSprite}
+            source={require('../../../assets/sprites/sprinty_correct_jump_sprite.png')}
             frameCount={4}
-            fps={8}
+            fps={10}
+            style={{ width: 80, height: 80 }}
           />
         </Animated.View>
-        <Text style={styles.loadingText}>Scoring sprint results...</Text>
+        <Text style={styles.loadingText}>
+          {offlineToastVisible ? 'Saving locally for background sync...' : 'Scoring sprint results...'}
+        </Text>
       </View>
     );
   }
@@ -218,61 +362,112 @@ export default function ActiveSprintScreen() {
   const progressPct = ((currentIndex + 1) / totalQuestions) * 100;
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* ── Duolingo Top Bar: Close + Progress + Hearts ── */}
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* ── Top Bar: Close + Progress + Streak Flame + Hints ── */}
       <View style={styles.topBar}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.closeBtn}
+          accessibilityLabel="Close sprint"
+          accessibilityRole="button"
         >
           <Text style={styles.closeBtnText}>✕</Text>
         </TouchableOpacity>
 
-        {/* Progress Bar (Duolingo gold) */}
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
+        {/* Duolingo Rounded Progress Pill */}
+        <View
+          style={[
+            styles.progressTrack,
+            { backgroundColor: colors.backgroundElement, borderColor: colors.cardBorder },
+          ]}
+        >
+          <View
+            style={[
+              styles.progressFill,
+              { width: `${progressPct}%`, backgroundColor: colors.duoGreen },
+            ]}
+          />
         </View>
 
-        {/* Streak Counter */}
-        {streakCount > 0 && (
-          <View style={styles.streakPill}>
-            <Text style={styles.streakText}>{streakCount} 🔥</Text>
-          </View>
-        )}
-
-        {/* Hearts */}
-        <View style={styles.heartPill}>
-          <Text style={styles.heartIcon}>❤️</Text>
-          <Text style={styles.heartCount}>5</Text>
+        {/* Streak Counter Pill */}
+        <View style={styles.streakWrap}>
+          <Text style={styles.streakEmoji}>🔥</Text>
+          <Text style={styles.streakText}>{sessionStreak}</Text>
         </View>
       </View>
 
-      {/* ── Timer Bar ── */}
-      <TimerBar
-        key={currentIndex}
-        durationSeconds={timerSeconds}
-        onTimeOut={handleTimeOut}
-        isActive={selectedAnswer === null && !showFeedback}
-      />
+      {/* ── Top Auxiliary Actions: 50/50 Hint & Skip ── */}
+      <View style={styles.actionRow}>
+        <TouchableOpacity
+          style={[
+            styles.hintBtn,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.cardBorder,
+            },
+            hintsRemaining <= 0 && { opacity: 0.4 },
+          ]}
+          onPress={handleUseHint}
+          disabled={hintsRemaining <= 0 || selectedAnswer !== null || showFeedback}
+          accessible={true}
+          accessibilityLabel={`Use 50/50 hint. ${hintsRemaining} remaining.`}
+          accessibilityRole="button"
+        >
+          <Text style={styles.hintBtnIcon}>💡</Text>
+          <Text style={styles.hintBtnText}>50/50 ({hintsRemaining})</Text>
+        </TouchableOpacity>
 
-      {/* ── Question Card ── */}
-      {currentQuestion && (
-        <Animated.View style={[styles.questionWrap, questionAnimatedStyle]}>
-          <QuestionCard
-            question={currentQuestion}
-            onAnswer={handleAnswerSubmit}
-            selectedAnswer={selectedAnswer}
+        <TouchableOpacity
+          style={[
+            styles.skipBtn,
+            { backgroundColor: colors.card, borderColor: colors.cardBorder },
+            (selectedAnswer !== null || showFeedback) && { opacity: 0.4 },
+          ]}
+          onPress={handleSkipQuestion}
+          disabled={selectedAnswer !== null || showFeedback}
+          accessible={true}
+          accessibilityLabel="Skip question"
+          accessibilityRole="button"
+        >
+          <Text style={styles.skipBtnText}>Skip ↷</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Main Content Area ── */}
+      <View style={styles.content}>
+        {/* Animated Timer Bar */}
+        <View style={styles.timerWrap}>
+          <TimerBar
+            key={`timer_${currentIndex}`}
+            durationSeconds={timerSeconds}
+            isPaused={selectedAnswer !== null || showFeedback}
+            isActive={!loading && !isSubmitting}
+            onTimeOut={handleTimeOut}
           />
-        </Animated.View>
-      )}
+        </View>
 
-      {/* ── Feedback Banner ── */}
+        {/* Horizontal Slide Animated Question Container */}
+        <Animated.View style={[styles.questionArea, questionAnimatedStyle]}>
+          {currentQuestion && (
+            <QuestionCard
+              question={currentQuestion}
+              onAnswer={handleAnswerSubmit}
+              selectedAnswer={selectedAnswer}
+              eliminatedOptions={eliminatedOptions}
+              activeHint={activeHintText}
+            />
+          )}
+        </Animated.View>
+      </View>
+
+      {/* ── Immediate Per-Option Quiz Feedback Modal ── */}
       <QuizFeedback
         visible={showFeedback}
-        isCorrect={isLastAnswerCorrect}
-        xp_gained={10}
+        isCorrect={Boolean(isLastAnswerCorrect)}
+        xp_gained={isLastAnswerCorrect ? 15 : 0}
+        strategyTip={currentQuestion?.strategyTip}
         explanation={currentQuestion?.explanation}
-        onContinue={advanceToNext}
+        onContinue={handleAdvance}
       />
     </SafeAreaView>
   );
@@ -281,89 +476,121 @@ export default function ActiveSprintScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-    padding: 16,
-  },
-  questionWrap: {
-    flex: 1,
-    width: '100%',
   },
   centerContainer: {
     flex: 1,
-    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-  },
-  loadingText: {
-    color: colors.textMuted,
-    marginTop: 20,
-    fontSize: 16,
-    fontWeight: '700',
+    padding: 24,
   },
   loadingRobot: {
-    width: 100,
-    height: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginBottom: 20,
   },
-  robotSprite: {
-    width: 90,
-    height: 90,
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginTop: 12,
+    color: colors.text,
   },
 
-  // ── Duolingo Top Bar ──
+  // ── Top Bar ──
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 12,
   },
   closeBtn: {
-    width: 32,
-    height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 6,
   },
   closeBtnText: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.textMuted,
   },
   progressTrack: {
     flex: 1,
-    height: 16,
-    backgroundColor: colors.cardBorder,
-    borderRadius: duo.radiusProgress,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.duoGold,
-    borderRadius: duo.radiusProgress,
+    borderRadius: 7,
   },
-  streakPill: {
-    backgroundColor: '#FFF4CC',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: duo.radiusPill,
-  },
-  streakText: {
-    fontSize: duo.fontCaption,
-    fontWeight: '700',
-    color: '#E5B300',
-  },
-  heartPill: {
+  streakWrap: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.backgroundElement,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
     gap: 4,
   },
-  heartIcon: {
-    fontSize: 18,
+  streakEmoji: {
+    fontSize: 14,
   },
-  heartCount: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.duoRed,
+  streakText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FF9600',
+  },
+
+  // ── Action Row (Hints / Skip) ──
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 8,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  hintBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderBottomWidth: 3,
+    gap: 4,
+  },
+  hintBtnIcon: {
+    fontSize: 13,
+  },
+  hintBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  skipBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderBottomWidth: 3,
+  },
+  skipBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.textMuted,
+  },
+
+  // ── Content ──
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  timerWrap: {
+    width: '100%',
+    marginBottom: 6,
+  },
+  questionArea: {
+    flex: 1,
   },
 });

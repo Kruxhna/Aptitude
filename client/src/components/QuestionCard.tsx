@@ -8,9 +8,17 @@ interface QuestionCardProps {
   question: any;
   onAnswer: (answer: string) => void;
   selectedAnswer?: any;
+  eliminatedOptions?: string[];
+  activeHint?: string | null;
 }
 
-export function QuestionCard({ question, onAnswer, selectedAnswer }: QuestionCardProps) {
+export function QuestionCard({
+  question,
+  onAnswer,
+  selectedAnswer,
+  eliminatedOptions = [],
+  activeHint,
+}: QuestionCardProps) {
   const [numericalInput, setNumericalInput] = useState('');
   const [hoveredOpt, setHoveredOpt] = useState<number | null>(null);
 

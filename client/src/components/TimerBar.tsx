@@ -15,6 +15,7 @@ interface TimerBarProps {
   durationSeconds?: number;
   onTimeUp?: () => void;
   onTimeOut?: () => void;
+  onCriticalThreshold?: () => void;
   isPaused?: boolean;
   isActive?: boolean;
 }
@@ -24,6 +25,7 @@ export function TimerBar({
   durationSeconds,
   onTimeUp, 
   onTimeOut,
+  onCriticalThreshold,
   isPaused = false,
   isActive = true,
 }: TimerBarProps) {
