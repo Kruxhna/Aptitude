@@ -22,8 +22,12 @@ import { enqueueOfflineSprint, isNetworkOnline } from '../../services/syncQueue'
 import { QuestionCard } from '../../components/QuestionCard';
 import { TimerBar } from '../../components/TimerBar';
 import { QuizFeedback } from '../../components/QuizFeedback';
-import { SpriteAnimator } from '../../components/SpriteAnimator';
+import { StreakFlame } from '../../components/StreakFlame';
+import { ConfettiOverlay } from '../../components/ConfettiOverlay';
+import { SprintyMascot } from '../../components/SprintyMascot';
 import { colors, duo } from '../../theme';
+import { useFeedback } from '../../services/FeedbackProvider';
+import { useMascot } from '../../mascot/MascotContext';
 
 const PER_QUESTION_TIMERS: Record<string, number> = {
   verbal: 30,
@@ -35,6 +39,8 @@ const PER_QUESTION_TIMERS: Record<string, number> = {
 export default function ActiveSprintScreen() {
   const { type, mode: paramMode } = useLocalSearchParams<{ type: string; mode?: string }>();
   const router = useRouter();
+  const { feedback } = useFeedback();
+  const mascot = useMascot();
 
   const [loading, setLoading] = useState(true);
   const [offlineToastVisible, setOfflineToastVisible] = useState(false);
@@ -50,6 +56,7 @@ export default function ActiveSprintScreen() {
   const eliminatedOptions = useQuizStore((s) => s.eliminatedOptions);
   const activeHintText = useQuizStore((s) => s.activeHintText);
   const showFeedback = useQuizStore((s) => s.showFeedback);
+  const showConfetti = useQuizStore((s) => s.showConfetti);
   const isSubmitting = useQuizStore((s) => s.isSubmitting);
   const responses = useQuizStore((s) => s.responses);
 
@@ -60,6 +67,7 @@ export default function ActiveSprintScreen() {
   const useHint = useQuizStore((s) => s.useHint);
   const skipQuestion = useQuizStore((s) => s.skipQuestion);
   const advanceToNextQuestion = useQuizStore((s) => s.advanceToNextQuestion);
+  const setShowConfetti = useQuizStore((s) => s.setShowConfetti);
   const setSubmitting = useQuizStore((s) => s.setSubmitting);
   const setSubmissionResult = useQuizStore((s) => s.setSubmissionResult);
 
@@ -101,29 +109,50 @@ export default function ActiveSprintScreen() {
 
   const handleAnswerSubmit = (answer: any) => {
     if (selectedAnswer !== null || showFeedback || isAnswered) return;
+
     const timeSpent = Math.max(100, Date.now() - questionStartTime.current);
-    submitOptionAnswer(answer, timeSpent);
+    const { isCorrect, isMilestone } = submitOptionAnswer(answer, timeSpent);
+
+    if (isCorrect) {
+      mascot.setEmotion('EXCITED_JUMP', 2500);
+      if (isMilestone) {
+        feedback.audio.levelUp();
+        feedback.haptics.successHeavy();
+      }
+    } else {
+      mascot.setEmotion('SAD_HEADSHAKE', 2500);
+    }
   };
 
   const handleTimeOut = () => {
     if (selectedAnswer !== null || showFeedback || isAnswered) return;
     timeOutQuestion(timerSeconds * 1000);
+    mascot.setEmotion('SAD_HEADSHAKE', 2500);
+    feedback.audio.wrong();
+    feedback.haptics.failureDoubleTap();
   };
 
   const handleUseHint = () => {
     if (hintsRemaining <= 0 || selectedAnswer !== null || showFeedback) return;
+    feedback.haptics.lightTap();
+    feedback.audio.buttonTap();
     useHint();
   };
 
   const handleSkipQuestion = () => {
     if (selectedAnswer !== null || showFeedback) return;
+    feedback.haptics.mediumTap();
+    feedback.audio.buttonTap();
+
     const timeSpent = Math.max(100, Date.now() - questionStartTime.current);
     skipQuestion(timeSpent);
     handleAdvance();
   };
 
   const handleAdvance = () => {
+    mascot.setEmotion('IDLE_HOVER');
     const { isFinished } = advanceToNextQuestion();
+
     if (isFinished) {
       finishSprint();
     } else {
@@ -327,12 +356,7 @@ export default function ActiveSprintScreen() {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
         <Animated.View style={[styles.loadingRobot, loadingAnimStyle]}>
-          <SpriteAnimator
-            source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
-            frameCount={4}
-            fps={8}
-            style={{ width: 80, height: 80 }}
-          />
+          <SprintyMascot size="lg" overrideEmotion="IDLE_HOVER" />
         </Animated.View>
         <Text style={styles.loadingText}>Fetching next questions...</Text>
       </View>
@@ -344,12 +368,7 @@ export default function ActiveSprintScreen() {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
         <Animated.View style={[styles.loadingRobot, loadingAnimStyle]}>
-          <SpriteAnimator
-            source={require('../../../assets/sprites/sprinty_correct_jump_sprite.png')}
-            frameCount={4}
-            fps={10}
-            style={{ width: 80, height: 80 }}
-          />
+          <SprintyMascot size="lg" overrideEmotion="EXCITED_JUMP" />
         </Animated.View>
         <Text style={styles.loadingText}>
           {offlineToastVisible ? 'Saving locally for background sync...' : 'Scoring sprint results...'}
@@ -363,6 +382,13 @@ export default function ActiveSprintScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* ── Confetti Milestone Celebration Overlay ── */}
+      <ConfettiOverlay
+        visible={showConfetti}
+        streakCount={sessionStreak}
+        onDismiss={() => setShowConfetti(false)}
+      />
+
       {/* ── Top Bar: Close + Progress + Streak Flame + Hints ── */}
       <View style={styles.topBar}>
         <TouchableOpacity
@@ -389,10 +415,9 @@ export default function ActiveSprintScreen() {
           />
         </View>
 
-        {/* Streak Counter Pill */}
+        {/* Dynamic Streak Flame Counter */}
         <View style={styles.streakWrap}>
-          <Text style={styles.streakEmoji}>🔥</Text>
-          <Text style={styles.streakText}>{sessionStreak}</Text>
+          <StreakFlame count={sessionStreak} size="sm" showLabel={true} />
         </View>
       </View>
 
@@ -443,6 +468,9 @@ export default function ActiveSprintScreen() {
             isPaused={selectedAnswer !== null || showFeedback}
             isActive={!loading && !isSubmitting}
             onTimeOut={handleTimeOut}
+            onCriticalThreshold={() => {
+              mascot.setEmotion('WORRIED_SWEAT', 4000);
+            }}
           />
         </View>
 
@@ -523,21 +551,6 @@ const styles = StyleSheet.create({
   streakWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.backgroundElement,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: colors.cardBorder,
-    gap: 4,
-  },
-  streakEmoji: {
-    fontSize: 14,
-  },
-  streakText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FF9600',
   },
 
   // ── Action Row (Hints / Skip) ──

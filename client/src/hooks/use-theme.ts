@@ -1,14 +1,18 @@
+import { useAccessibility } from '../services/AccessibilityProvider';
+import { Colors, ThemeColors } from '../constants/theme';
+import { useColorScheme } from './use-color-scheme';
+
 /**
- * Learn more about light and dark modes:
- * https://docs.expo.dev/guides/color-schemes/
+ * Returns dynamic theme colors reflecting user theme mode (Light/Dark/System),
+ * High Contrast Mode, and Color-Blindness presets.
  */
-
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export function useTheme() {
-  const scheme = useColorScheme();
-  const theme = scheme === 'unspecified' ? 'light' : scheme;
-
-  return Colors[theme];
+export function useTheme(): ThemeColors {
+  try {
+    const { colors } = useAccessibility();
+    return colors;
+  } catch {
+    const scheme = useColorScheme();
+    const theme = scheme === 'dark' ? 'dark' : 'light';
+    return Colors[theme];
+  }
 }

@@ -4,8 +4,47 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { api } from '../api';
 import { colors } from '../theme';
+import { AccessibilityProvider, useAccessibility } from '../services/AccessibilityProvider';
+import { FeedbackProvider } from '../services/FeedbackProvider';
+import { MascotProvider } from '../mascot/MascotContext';
 import { initSyncQueueListener } from '../services/syncQueue';
 import { useUserStore } from '../stores/useUserStore';
+
+function AppNavigation() {
+  const { colors: themeColors, isDark } = useAccessibility();
+
+  return (
+    <>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <Stack
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: themeColors.background,
+          },
+          headerTintColor: themeColors.text,
+          contentStyle: {
+            backgroundColor: themeColors.background,
+          },
+        }}
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="wardrobe"
+          options={{ title: 'SPRINTY Wardrobe', presentation: 'modal', headerShown: false }}
+        />
+        <Stack.Screen
+          name="sprint/[type]"
+          options={{ title: 'Daily Sprint', headerBackTitle: 'Cancel' }}
+        />
+        <Stack.Screen
+          name="sprint/results"
+          options={{ title: 'Sprint Results', headerLeft: () => null }}
+        />
+      </Stack>
+    </>
+  );
+}
 
 export default function RootLayout() {
   const router = useRouter();
@@ -60,31 +99,13 @@ export default function RootLayout() {
   }
 
   return (
-    <>
-      <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: colors.background,
-          },
-          headerTintColor: colors.text,
-          contentStyle: {
-            backgroundColor: colors.background,
-          },
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="sprint/[type]"
-          options={{ title: 'Daily Sprint', headerBackTitle: 'Cancel' }}
-        />
-        <Stack.Screen
-          name="sprint/results"
-          options={{ title: 'Sprint Results', headerLeft: () => null }}
-        />
-      </Stack>
-    </>
+    <AccessibilityProvider>
+      <FeedbackProvider>
+        <MascotProvider>
+          <AppNavigation />
+        </MascotProvider>
+      </FeedbackProvider>
+    </AccessibilityProvider>
   );
 }
 

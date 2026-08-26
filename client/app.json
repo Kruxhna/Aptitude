@@ -18,7 +18,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.client"
+      "package": "com.anonymous.client",
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",
@@ -26,12 +27,21 @@
     },
     "plugins": [
       "expo-router",
+      "expo-image",
       [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
         }
       ]
     ],

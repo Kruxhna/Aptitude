@@ -2,16 +2,26 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-// Dynamic Base URL Resolution supporting Expo Go physical device, Android Emulator, and iOS Simulator
-function resolveBaseApiUrl(): string {
+/**
+ * Dynamically resolves the API Base URL:
+ * 1. Explicit env var: process.env.EXPO_PUBLIC_API_URL
+ * 2. Physical Android/iOS device (Expo Go / Dev Build): extract host LAN IP from Constants.expoConfig?.hostUri
+ * 3. Android Emulator fallback: http://10.0.2.2:3000/api
+ * 4. iOS Simulator / Web / Default: http://localhost:3000/api
+ */
+export function getApiBaseUrl(): string {
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
 
-  const hostUri = Constants.expoConfig?.hostUri;
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).manifest?.debuggerHost ||
+    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+
   if (hostUri) {
     const lanIp = hostUri.split(':')[0];
-    if (lanIp) {
+    if (lanIp && lanIp !== 'localhost' && lanIp !== '127.0.0.1') {
       return `http://${lanIp}:3000/api`;
     }
   }
@@ -23,7 +33,7 @@ function resolveBaseApiUrl(): string {
   return 'http://localhost:3000/api';
 }
 
-const API_URL = resolveBaseApiUrl();
+const API_URL = getApiBaseUrl();
 export const BASE_HOST_URL = API_URL.replace(/\/api\/?$/, '');
 
 export function resolveAssetUrl(path?: string | null): string | undefined {

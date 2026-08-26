@@ -10,9 +10,11 @@ import Animated, {
   Easing,
   runOnJS,
 } from 'react-native-reanimated';
-import { SpriteAnimator } from './SpriteAnimator';
-import { theme } from '../theme';
-import { SymbolView } from 'expo-symbols';
+import { SprintyMascot } from './SprintyMascot';
+import { ThemedText } from './themed-text';
+import { useAccessibility } from '../services/AccessibilityProvider';
+import { useTheme } from '../hooks/use-theme';
+import { useFeedback } from '../services/FeedbackProvider';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -28,76 +30,86 @@ export interface QuizFeedbackProps {
 export function QuizFeedback({
   visible,
   isCorrect,
-  xp_gained = 10,
+  xp_gained = 15,
   explanation,
   strategyTip,
   onContinue,
 }: QuizFeedbackProps) {
-  // Banner animations
-  const translateY = useSharedValue(300); // Initial offset below screen (+100%)
+  const theme = useTheme();
+  let isHighContrast = false;
+  let isReducedMotion = false;
+
+  try {
+    const acc = useAccessibility();
+    isHighContrast = acc.isHighContrast;
+    isReducedMotion = acc.isReducedMotionActive;
+  } catch {
+    // Outside accessibility provider
+  }
+
+  const { feedback } = useFeedback();
+  const [isDismissing, setIsDismissing] = useState(false);
+
+  // Animation values
+  const translateY = useSharedValue(200);
   const translateX = useSharedValue(0);
-  const scale = useSharedValue(1);
-  
-  // SPRINTY Robot jump animations
+  const scale = useSharedValue(0.9);
   const robotTranslateY = useSharedValue(0);
   const robotScaleX = useSharedValue(1);
   const robotScaleY = useSharedValue(1);
 
-  const [isDismissing, setIsDismissing] = useState(false);
-
   useEffect(() => {
     if (visible) {
       setIsDismissing(false);
-      // Reset position before entering
-      translateX.value = 0;
-      scale.value = 1;
-      translateY.value = 300;
 
-      // Slide up from bottom with custom spring / Duolingo bounce ease
-      translateY.value = withSpring(0, {
-        stiffness: 300,
-        damping: 15,
-      });
+      if (isReducedMotion) {
+        translateY.value = withTiming(0, { duration: 100 });
+        scale.value = withTiming(1, { duration: 100 });
+        translateX.value = 0;
+        robotTranslateY.value = 0;
+      } else {
+        // Slide up banner
+        translateY.value = withSpring(0, {
+          damping: 15,
+          stiffness: 180,
+          mass: 0.8,
+        });
 
-      // SPRINTY celebratory jump animation on correct answer
-      if (isCorrect) {
-        robotTranslateY.value = withDelay(
-          100,
-          withSequence(
-            withTiming(-40, { duration: 250, easing: Easing.out(Easing.quad) }),
-            withTiming(0, { duration: 200, easing: Easing.in(Easing.quad) }),
-            withTiming(-18, { duration: 150, easing: Easing.out(Easing.quad) }),
-            withTiming(0, { duration: 150, easing: Easing.in(Easing.quad) })
-          )
+        scale.value = withSequence(
+          withTiming(1.03, { duration: 180, easing: Easing.out(Easing.quad) }),
+          withSpring(1.0, { damping: 12, stiffness: 200 })
         );
-        // Squash and stretch during leap
-        robotScaleY.value = withDelay(
-          100,
-          withSequence(
-            withTiming(1.2, { duration: 200 }),
-            withTiming(0.9, { duration: 100 }),
-            withTiming(1.0, { duration: 150 })
-          )
-        );
+
+        if (isCorrect) {
+          // Mascot celebratory bounce
+          robotTranslateY.value = withSequence(
+            withDelay(120, withTiming(-18, { duration: 220, easing: Easing.out(Easing.quad) })),
+            withSpring(0, { damping: 10, stiffness: 180 })
+          );
+        } else {
+          // Mascot subtle shake
+          translateX.value = withSequence(
+            withTiming(-6, { duration: 60 }),
+            withTiming(6, { duration: 60 }),
+            withTiming(-4, { duration: 60 }),
+            withTiming(4, { duration: 60 }),
+            withTiming(0, { duration: 60 })
+          );
+        }
       }
     } else {
-      translateY.value = 300;
+      translateY.value = 200;
+      scale.value = 0.9;
     }
-  }, [visible, isCorrect]);
+  }, [visible, isCorrect, isReducedMotion]);
 
   const handleContinue = () => {
     if (isDismissing) return;
     setIsDismissing(true);
+    feedback.haptics.mediumTap();
+    feedback.audio.buttonTap();
 
-    // Rapidly slide right and scale down to 0, then invoke callback
-    translateX.value = withTiming(SCREEN_WIDTH, {
-      duration: 250,
-      easing: Easing.in(Easing.cubic),
-    });
-    scale.value = withTiming(0, {
-      duration: 250,
-      easing: Easing.in(Easing.cubic),
-    }, (finished) => {
+    translateY.value = withTiming(200, { duration: isReducedMotion ? 100 : 250 }, (finished) => {
       if (finished && onContinue) {
         runOnJS(onContinue)();
       }
@@ -122,35 +134,50 @@ export function QuizFeedback({
 
   if (!visible) return null;
 
-  const backgroundColor = isCorrect ? theme.colors.duoGreenLight : theme.colors.duoRedLight;
-  const textColor = isCorrect ? theme.colors.duoGreenDark : theme.colors.duoRedDark;
-  const borderColor = isCorrect ? theme.colors.duoGreen : theme.colors.duoRed;
+  const backgroundColor = isCorrect ? theme.duoGreenLight : theme.duoRedLight;
+  const textColor = isCorrect ? theme.statusCorrectText : theme.statusIncorrectText;
+  const borderColor = isCorrect ? theme.duoGreen : theme.duoRed;
+  const borderBottomColor = isCorrect ? theme.duoGreenDark : theme.duoRedDark;
   const titleText = isCorrect ? 'Excellent!' : 'Incorrect';
-  const iconName = isCorrect ? 'checkmark.circle.fill' : 'xmark.circle.fill';
+  const badgeLabel = isCorrect ? '[CORRECT] ✓' : '[INCORRECT] ✕';
 
   return (
     <Animated.View style={[styles.overlayContainer, bannerAnimatedStyle]}>
-      <View style={[styles.bannerCard, { backgroundColor, borderColor, borderWidth: 2, borderBottomWidth: 5, borderBottomColor: borderColor }]}>
+      <View
+        style={[
+          styles.bannerCard,
+          {
+            backgroundColor,
+            borderColor,
+            borderWidth: isHighContrast ? 3 : 2,
+            borderBottomWidth: isHighContrast ? 5 : 4,
+            borderBottomColor,
+          },
+        ]}
+      >
         <View style={styles.contentRow}>
-          {/* SPRINTY Robot Icon Performing Jump */}
+          {/* SPRINTY Robot Mascot with Emotion & Active Costume */}
           <Animated.View style={[styles.robotContainer, robotAnimatedStyle]}>
-            <SpriteAnimator
-              source={
-                isCorrect
-                  ? require('../../assets/sprites/sprinty_correct_jump_sprite.png')
-                  : require('../../assets/sprites/sprinty_idle_hover_sprite.png')
-              }
-              style={styles.robotSprite}
-              frameCount={4}
-              fps={isCorrect ? 12 : 8}
-              loop={!isCorrect}
+            <SprintyMascot
+              size="sm"
+              overrideEmotion={isCorrect ? 'EXCITED_JUMP' : 'SAD_HEADSHAKE'}
             />
           </Animated.View>
 
           <View style={styles.textContainer}>
+            {/* Dual-Encoding Header: Badge + Icon + Text */}
             <View style={styles.titleRow}>
-              <SymbolView name={iconName} size={28} tintColor={textColor} />
-              <Text style={[styles.titleText, { color: textColor }]}>{titleText}</Text>
+              <View
+                style={[
+                  styles.dualEncodingBadge,
+                  { backgroundColor: isCorrect ? theme.duoGreen : theme.duoRed },
+                ]}
+              >
+                <Text style={styles.dualEncodingBadgeText}>{badgeLabel}</Text>
+              </View>
+              <ThemedText style={[styles.titleText, { color: textColor }]}>
+                {titleText}
+              </ThemedText>
               {isCorrect && xp_gained > 0 && (
                 <View style={styles.xpBadge}>
                   <Text style={styles.xpText}>+{xp_gained} XP</Text>
@@ -158,24 +185,41 @@ export function QuizFeedback({
               )}
             </View>
 
+            {strategyTip ? (
+              <ThemedText style={[styles.strategyTipText, { color: textColor }]}>
+                💡 {strategyTip}
+              </ThemedText>
+            ) : null}
+
             {explanation ? (
-              <Text style={styles.explanationText} numberOfLines={2}>
+              <ThemedText style={styles.explanationText} numberOfLines={4}>
                 {explanation}
-              </Text>
+              </ThemedText>
             ) : null}
           </View>
         </View>
 
         {/* Continue Action Button (Duolingo 3D) */}
         <TouchableOpacity
-          style={[styles.continueButton, isDismissing && { opacity: 0.7 }, { backgroundColor: isCorrect ? theme.colors.duoGreen : theme.colors.duoRed, borderBottomColor: isCorrect ? theme.colors.duoGreenDark : theme.colors.duoRedDark }]}
+          style={[
+            styles.continueButton,
+            isDismissing && { opacity: 0.7 },
+            {
+              backgroundColor: isCorrect ? theme.duoGreen : theme.duoRed,
+              borderBottomColor: isCorrect ? theme.duoGreenDark : theme.duoRedDark,
+              borderWidth: isHighContrast ? 2 : 0,
+              borderColor: isHighContrast ? theme.contrastBorder : 'transparent',
+            },
+          ]}
           activeOpacity={0.8}
           onPress={handleContinue}
           disabled={isDismissing}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Continue to next question"
+          accessibilityState={{ disabled: isDismissing }}
         >
-          <Text style={styles.continueButtonText}>
-            CONTINUE
-          </Text>
+          <Text style={styles.continueButtonText}>CONTINUE</Text>
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -194,7 +238,7 @@ const styles = StyleSheet.create({
     elevation: 20,
   },
   bannerCard: {
-    borderRadius: 20, // Global shape token: border-radius 20px
+    borderRadius: 20,
     padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -206,58 +250,64 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
+    gap: 12,
   },
   robotContainer: {
-    width: 64,
-    height: 64,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  robotSprite: {
-    width: 60,
-    height: 60,
   },
   textContainer: {
     flex: 1,
+    gap: 6,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
   },
-  titleText: {
+  dualEncodingBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  dualEncodingBadgeText: {
     color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '900',
     letterSpacing: 0.5,
   },
+  titleText: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
   xpBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 12,
-    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
   },
   xpText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
+    color: '#B45309',
+    fontSize: 12,
+    fontWeight: '800',
   },
-  explanationText: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 14,
-    marginTop: 6,
+  strategyTipText: {
+    fontSize: 13,
+    fontWeight: '700',
     lineHeight: 18,
   },
+  explanationText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+    opacity: 0.9,
+  },
   continueButton: {
-    backgroundColor: '#58CC02',
     borderRadius: 16,
     borderBottomWidth: 5,
-    borderBottomColor: '#58A700',
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -265,7 +315,7 @@ const styles = StyleSheet.create({
   continueButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: 1,
+    fontWeight: '900',
+    letterSpacing: 0.8,
   },
 });

@@ -14,7 +14,6 @@
     "generate:spatial": "node src/scripts/generate-spatial.js --count 100",
     "generate:all": "npm run generate:verbal && npm run generate:quantitative && npm run generate:logical && npm run generate:spatial",
     "validate": "node src/scripts/validate-questions.js --input generated/",
-    "seed:batch": "node src/scripts/batch-seed.js --input generated/",
     "pipeline": "npm run generate:all && npm run validate && npm run seed:batch",
     "lint": "echo 'No linter configured yet'",
     "test": "jest"

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,157 +6,257 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Dimensions,
   SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useUserStore } from '../../stores/useUserStore';
+import { PathNode } from '../../api';
 import { usePathStore } from '../../stores/usePathStore';
-import { SpriteAnimator } from '../../components/SpriteAnimator';
+import { useUserStore } from '../../stores/useUserStore';
 import { colors, duo } from '../../theme';
-import { PathNode, NodeState, SkillCategory } from '../../api';
+import { SprintyMascot } from '../../components/SprintyMascot';
+import { PathCanvas, ROW_HEIGHT, TOP_PADDING } from '../../components/PathCanvas';
+import { NodePreviewTooltip } from '../../components/NodePreviewTooltip';
+import haptics from '../../services/haptics';
 
-// ─── Default Skill Nodes for Fallback ─────────────────────────
-const DEFAULT_SKILL_NODES: PathNode[] = [
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// ─── Default Fallback DAG Nodes for Instant Offline Load ─────────
+const DEFAULT_PATH_NODES: PathNode[] = [
   {
     id: 'node-1',
     skill: 'QUANTITATIVE',
     topic: 'Algebra & Ratios',
-    description: 'Master linear equations and ratios.',
+    description: 'Master linear equations, proportions, and algebraic expressions.',
     questionCount: 5,
     estimatedMinutes: 4,
-    state: 'COMPLETED',
+    eloRequirement: 1000,
+    xpReward: 35,
+    state: 'PERFECT',
     isBranch: false,
-    position: { x: 0, y: 0 },
+    position: { x: 0.5, y: 0 },
     accuracy: 1.0,
   },
   {
     id: 'node-2',
     skill: 'VERBAL',
-    topic: 'Vocabulary & Context',
-    description: 'Core word power and contextual synonyms.',
+    topic: 'Vocabulary & Synonyms',
+    description: 'Build core word power, contextual antonyms, and verbal clarity.',
     questionCount: 5,
     estimatedMinutes: 3,
-    state: 'CURRENT',
+    eloRequirement: 1020,
+    xpReward: 30,
+    state: 'COMPLETED',
     isBranch: false,
-    position: { x: 40, y: 1 },
+    position: { x: 0.64, y: 1 },
+    accuracy: 0.8,
+  },
+  {
+    id: 'node-2-branch-spatial',
+    skill: 'SPATIAL',
+    topic: '2D Rotations & Mirrors',
+    description: 'Visualize planar rotations, reflections, and mirror symmetry.',
+    questionCount: 5,
+    estimatedMinutes: 4,
+    eloRequirement: 1050,
+    xpReward: 40,
+    state: 'CURRENT',
+    isBranch: true,
+    branchParentId: 'node-2',
+    mergeTargetId: 'node-3',
+    position: { x: 0.18, y: 1.8 },
   },
   {
     id: 'node-3',
     skill: 'LOGICAL',
     topic: 'Deductive Syllogisms',
-    description: 'Venn deductions and logical inference.',
+    description: 'Analyze premises, Venn deductions, and valid conclusions.',
     questionCount: 5,
-    estimatedMinutes: 4,
+    estimatedMinutes: 5,
+    eloRequirement: 1060,
+    xpReward: 45,
     state: 'LOCKED',
     isBranch: false,
-    position: { x: -40, y: 2 },
+    position: { x: 0.46, y: 2.6 },
   },
   {
     id: 'node-4',
-    skill: 'SPATIAL',
-    topic: '2D & 3D Rotations',
-    description: 'Visual symmetry, mirrors, and projections.',
+    skill: 'QUANTITATIVE',
+    topic: 'Percentages & Profit',
+    description: 'Solve discounts, markup ratios, and compounded changes.',
     questionCount: 5,
     estimatedMinutes: 4,
+    eloRequirement: 1080,
+    xpReward: 35,
     state: 'LOCKED',
     isBranch: false,
-    position: { x: 30, y: 3 },
+    position: { x: 0.36, y: 3.6 },
+  },
+  {
+    id: 'node-4-branch-verbal',
+    skill: 'VERBAL',
+    topic: 'Grammar & Error Spotting',
+    description: 'Sentence correction, subject-verb agreement, and prepositions.',
+    questionCount: 5,
+    estimatedMinutes: 3,
+    eloRequirement: 1100,
+    xpReward: 30,
+    state: 'LOCKED',
+    isBranch: true,
+    branchParentId: 'node-4',
+    mergeTargetId: 'node-5',
+    position: { x: 0.82, y: 4.4 },
   },
   {
     id: 'node-5',
-    skill: 'QUANTITATIVE',
-    topic: 'Speed & Time',
-    description: 'Relative speed, trains, and circular tracks.',
+    skill: 'LOGICAL',
+    topic: 'Blood Relations & Direction',
+    description: 'Family tree puzzles, compass bearings, and distance vectors.',
     questionCount: 5,
-    estimatedMinutes: 5,
+    estimatedMinutes: 4,
+    eloRequirement: 1120,
+    xpReward: 40,
     state: 'LOCKED',
     isBranch: false,
-    position: { x: 0, y: 4 },
+    position: { x: 0.50, y: 5.2 },
+  },
+  {
+    id: 'node-6',
+    skill: 'SPATIAL',
+    topic: 'Paper Folding & Cutting',
+    description: 'Transparent sheets, punched hole unfoldings, and pattern symmetry.',
+    questionCount: 5,
+    estimatedMinutes: 4,
+    eloRequirement: 1140,
+    xpReward: 40,
+    state: 'LOCKED',
+    isBranch: false,
+    position: { x: 0.64, y: 6.2 },
+  },
+  {
+    id: 'node-6-branch-quant',
+    skill: 'QUANTITATIVE',
+    topic: 'Speed, Time & Distance',
+    description: 'Relative speed, trains, circular tracks, and boat streams.',
+    questionCount: 5,
+    estimatedMinutes: 5,
+    eloRequirement: 1160,
+    xpReward: 50,
+    state: 'LOCKED',
+    isBranch: true,
+    branchParentId: 'node-6',
+    mergeTargetId: 'node-7',
+    position: { x: 0.18, y: 7.0 },
+  },
+  {
+    id: 'node-7',
+    skill: 'VERBAL',
+    topic: 'Reading Comprehension',
+    description: 'Passage inference, central themes, and tone evaluation.',
+    questionCount: 5,
+    estimatedMinutes: 5,
+    eloRequirement: 1180,
+    xpReward: 45,
+    state: 'LOCKED',
+    isBranch: false,
+    position: { x: 0.50, y: 7.8 },
+  },
+  {
+    id: 'node-8',
+    skill: 'QUANTITATIVE',
+    topic: 'Data Interpretation',
+    description: 'Bar graphs, pie charts, tabular analysis, and trend forecasting.',
+    questionCount: 5,
+    estimatedMinutes: 5,
+    eloRequirement: 1200,
+    xpReward: 50,
+    state: 'LOCKED',
+    isBranch: false,
+    position: { x: 0.36, y: 8.8 },
+  },
+  {
+    id: 'node-9',
+    skill: 'LOGICAL',
+    topic: 'Seating Arrangements',
+    description: 'Circular tables, multi-variable constraints, and matrix grids.',
+    questionCount: 5,
+    estimatedMinutes: 5,
+    eloRequirement: 1220,
+    xpReward: 50,
+    state: 'LOCKED',
+    isBranch: false,
+    position: { x: 0.52, y: 9.8 },
+  },
+  {
+    id: 'node-10',
+    skill: 'SPATIAL',
+    topic: '3D Cube & Block Projections',
+    description: 'Orthographic projections, painted cubes, and isometric views.',
+    questionCount: 5,
+    estimatedMinutes: 4,
+    eloRequirement: 1250,
+    xpReward: 45,
+    state: 'LOCKED',
+    isBranch: false,
+    position: { x: 0.64, y: 10.8 },
+  },
+  {
+    id: 'node-11',
+    skill: 'QUANTITATIVE',
+    topic: 'Probability & Combinatorics',
+    description: 'Permutations, combinations, conditional probability, and Bayes.',
+    questionCount: 5,
+    estimatedMinutes: 5,
+    eloRequirement: 1280,
+    xpReward: 55,
+    state: 'LOCKED',
+    isBranch: false,
+    position: { x: 0.50, y: 11.8 },
+  },
+  {
+    id: 'node-12',
+    skill: 'QUANTITATIVE',
+    topic: 'GATE Mastery Sprint',
+    description: 'Grand comprehensive challenge across all 4 aptitude sections.',
+    questionCount: 10,
+    estimatedMinutes: 8,
+    eloRequirement: 1300,
+    xpReward: 100,
+    state: 'LOCKED',
+    isBranch: false,
+    position: { x: 0.40, y: 12.8 },
   },
 ];
 
-const SKILL_ICONS: Record<string, string> = {
-  QUANTITATIVE: '📐',
-  VERBAL: '📖',
-  LOGICAL: '🧩',
-  SPATIAL: '🎲',
-};
-
-const SKILL_COLORS: Record<string, { bg: string; dark: string }> = {
-  QUANTITATIVE: { bg: colors.duoRed, dark: colors.duoRedDark },
-  VERBAL: { bg: colors.duoPurple, dark: '#A855F7' },
-  LOGICAL: { bg: colors.duoBlue, dark: '#1899D6' },
-  SPATIAL: { bg: colors.duoGold, dark: colors.duoGoldDark },
-};
-
-function ChunkyNode({
-  node,
-  onPress,
-}: {
-  node: PathNode;
-  onPress: () => void;
-}) {
-  const isCompleted = node.state === 'COMPLETED' || node.state === 'PERFECT';
-  const isCurrent = node.state === 'CURRENT';
-  const isLocked = node.state === 'LOCKED';
-
-  const skillColor = SKILL_COLORS[node.skill] || { bg: colors.duoGreen, dark: colors.duoGreenDark };
-
-  const bg = isLocked ? '#E5E5E5' : isCompleted ? colors.duoGreen : skillColor.bg;
-  const dark = isLocked ? '#C4C4C4' : isCompleted ? colors.duoGreenDark : skillColor.dark;
-  const icon = isLocked ? '🔒' : isCompleted ? '✓' : SKILL_ICONS[node.skill] || '⭐';
-
-  return (
-    <View style={[styles.nodeWrapper, { transform: [{ translateX: node.position?.x || 0 }] }]}>
-      {isCurrent && (
-        <View style={styles.tooltip}>
-          <Text style={styles.tooltipText}>START HERE</Text>
-          <View style={styles.tooltipArrow} />
-        </View>
-      )}
-
-      <TouchableOpacity
-        activeOpacity={isLocked ? 1 : 0.85}
-        disabled={isLocked}
-        onPress={onPress}
-      >
-        <View style={[styles.outerRing, isCurrent && { borderColor: colors.duoGold, borderWidth: 4 }]}>
-          <View
-            style={[
-              styles.chunkyCircle,
-              {
-                backgroundColor: bg,
-                borderBottomColor: dark,
-              },
-            ]}
-          >
-            <Text style={styles.nodeIcon}>{icon}</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-
-      <Text style={[styles.nodeTitle, isLocked && styles.nodeTitleLocked]}>
-        {node.topic}
-      </Text>
-      <Text style={styles.nodeCategory}>{node.skill}</Text>
-    </View>
-  );
-}
-
 export default function HomeScreen() {
   const router = useRouter();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Granular atomic Zustand selectors
+  const storeNodes = usePathStore((s) => s.nodes);
+  const fetchPathTree = usePathStore((s) => s.fetchPathTree);
+
   const streakCount = useUserStore((s) => s.currentStreak);
   const totalXp = useUserStore((s) => s.totalXp);
+  const currentLeague = useUserStore((s) => s.currentLeague);
   const userElo = useUserStore((s) => s.elo);
   const isPendingSync = useUserStore((s) => s.isPendingSync);
   const fetchUserProfile = useUserStore((s) => s.fetchUserProfile);
 
-  const storeNodes = usePathStore((s) => s.nodes);
-  const fetchPathTree = usePathStore((s) => s.fetchPathTree);
-
   const [refreshing, setRefreshing] = useState(false);
+  const [initialScrolled, setInitialScrolled] = useState(false);
+
+  // Tooltip State
+  const [selectedNode, setSelectedNode] = useState<PathNode | null>(null);
+  const [anchorLayout, setAnchorLayout] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    pageX: number;
+    pageY: number;
+  } | null>(null);
+  const [tooltipVisible, setTooltipVisible] = useState(false);
 
   useEffect(() => {
     fetchPathTree().catch(() => {});
@@ -165,6 +265,7 @@ export default function HomeScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    haptics.impactLight();
     await Promise.all([
       fetchPathTree(true).catch(() => {}),
       fetchUserProfile().catch(() => {}),
@@ -172,11 +273,48 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [fetchPathTree, fetchUserProfile]);
 
-  const nodes = storeNodes.length > 0 ? storeNodes : DEFAULT_SKILL_NODES;
+  const nodes = storeNodes && storeNodes.length > 0 ? storeNodes : DEFAULT_PATH_NODES;
+
+  // Auto-Focus Active (CURRENT) Node
+  useEffect(() => {
+    if (!initialScrolled && nodes.length > 0) {
+      const currentNode = nodes.find((n) => n.state === 'CURRENT');
+      if (currentNode) {
+        const nodeCanvasY = currentNode.position.y * ROW_HEIGHT + TOP_PADDING;
+        const targetScrollY = Math.max(0, nodeCanvasY + 220 - SCREEN_HEIGHT / 2 + 60);
+
+        const timer = setTimeout(() => {
+          scrollViewRef.current?.scrollTo({ y: targetScrollY, animated: true });
+          setInitialScrolled(true);
+        }, 350);
+
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [nodes, initialScrolled]);
+
+  const handleNodePress = (
+    node: PathNode,
+    layout: { x: number; y: number; width: number; height: number; pageX: number; pageY: number }
+  ) => {
+    setSelectedNode(node);
+    setAnchorLayout(layout);
+    setTooltipVisible(true);
+  };
+
+  const handleStartSprint = (node: PathNode) => {
+    setTooltipVisible(false);
+    router.push({
+      pathname: '/sprint/[type]',
+      params: { type: 'standard', nodeId: node.id },
+    } as any);
+  };
+
+  const currentNode = nodes.find((n) => n.state === 'CURRENT') || nodes[0];
   const completedCount = nodes.filter(
     (n) => n.state === 'COMPLETED' || n.state === 'PERFECT' || n.state === 'REVIEW'
   ).length;
-  const progressPct = Math.round((completedCount / nodes.length) * 100);
+  const progressPercent = Math.round((completedCount / nodes.length) * 100);
 
   const avgElo = Math.round(
     ((userElo.verbal || 1000) +
@@ -188,7 +326,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ─── Top Stat Header ─── */}
+      {/* ─── Top Stat Header Bar (Duolingo Pill Bar) ─── */}
       <View style={styles.topBar}>
         <View style={styles.statPill}>
           <Text style={styles.statEmoji}>🔥</Text>
@@ -196,13 +334,17 @@ export default function HomeScreen() {
         </View>
         <View style={styles.statPill}>
           <Text style={styles.statEmoji}>⚡</Text>
-          <Text style={[styles.statNum, { color: '#FFC800' }]}>
-            {totalXp.toLocaleString()}
-          </Text>
+          <Text style={[styles.statNum, { color: '#FFC800' }]}>{totalXp.toLocaleString()}</Text>
         </View>
         <View style={styles.statPill}>
           <Text style={styles.statEmoji}>🎯</Text>
           <Text style={[styles.statNum, { color: '#1CB0F6' }]}>{avgElo}</Text>
+        </View>
+        <View style={styles.statPill}>
+          <Text style={styles.statEmoji}>🏆</Text>
+          <Text style={[styles.statNum, { color: '#CE82FF' }]}>
+            {currentLeague || 'Bronze'}
+          </Text>
         </View>
       </View>
 
@@ -215,114 +357,130 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {/* ─── Scroll Container with Uniform Snapping ─── */}
       <ScrollView
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        snapToInterval={ROW_HEIGHT}
+        decelerationRate="fast"
+        snapToAlignment="center"
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
-        {/* ─── Mascot + Speech Bubble ─── */}
-        <View style={styles.mascotRow}>
-          <SpriteAnimator
-            source={require('../../../assets/sprites/sprinty_idle_hover_sprite.png')}
-            style={styles.mascotImg}
-            frameCount={4}
-            fps={8}
-          />
-          <View style={styles.speechBubble}>
-            <Text style={styles.speechText}>
-              Ready for today's{'\n'}GATE sprint?
-            </Text>
-            <View style={styles.speechArrow} />
-          </View>
-        </View>
+        {/* ─── SPRINTY Companion + Dynamic Speech Bubble ─── */}
+        <SprintyMascot
+          size="md"
+          showSpeechBubble={true}
+          speechText="Next up:"
+          speechHighlight={currentNode?.topic || 'GATE Aptitude'}
+          style={styles.mascotRow}
+        />
 
-        {/* ─── Daily Sprint CTA (3D chunky button) ─── */}
+        {/* ─── Daily Sprint Card (3D Chunky) ─── */}
         <View style={styles.sprintCard}>
           <View style={styles.sprintRow}>
             <View>
-              <Text style={styles.sprintTag}>DAILY SPRINT</Text>
-              <Text style={styles.sprintTitle}>Personalized Practice</Text>
+              <Text style={styles.sprintTag}>GATE APTITUDE PATH</Text>
+              <Text style={styles.sprintTitle}>
+                {completedCount}/{nodes.length} Lessons Completed
+              </Text>
             </View>
           </View>
 
           {/* Progress bar */}
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
+            <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
           </View>
           <Text style={styles.progressLabel}>
-            {progressPct}% complete · {completedCount}/{nodes.length} lessons
+            {progressPercent}% Path Mastery · {nodes.length - completedCount} lessons remaining
           </Text>
 
-          {/* 3D Start Button */}
+          {/* 3D Quick Start Button */}
           <TouchableOpacity
             style={styles.startBtn}
-            activeOpacity={0.9}
-            onPress={() => router.push('/sprint/standard' as any)}
+            activeOpacity={0.88}
+            onPress={() => {
+              haptics.buttonPress();
+              router.push({
+                pathname: '/sprint/[type]',
+                params: { type: 'standard', nodeId: currentNode?.id },
+              } as any);
+            }}
           >
             <View style={styles.startBtnInner}>
-              <Text style={styles.startBtnText}>START SPRINT</Text>
+              <Text style={styles.startBtnText}>CONTINUE SPRINT 🚀</Text>
             </View>
           </TouchableOpacity>
         </View>
 
-        {/* ─── Section: Learning Path ─── */}
-        <Text style={styles.sectionHeader}>LEARNING PATH</Text>
+        {/* ─── Section Header ─── */}
+        <View style={styles.pathHeaderRow}>
+          <View style={styles.headerLine} />
+          <Text style={styles.sectionHeader}>LEARNING PATH</Text>
+          <View style={styles.headerLine} />
+        </View>
 
-        {/* ─── Zig-Zag Skill Path ─── */}
-        <View style={styles.pathContainer}>
-          {/* Vertical connector track */}
-          <View style={styles.verticalTrack} />
-
-          {nodes.map((node) => (
-            <ChunkyNode
-              key={node.id}
-              node={node}
-              onPress={() => router.push('/sprint/standard' as any)}
-            />
-          ))}
+        {/* ─── 2D Coordinate-Based Path Canvas with SVG Bezier Connectors ─── */}
+        <View style={styles.canvasWrapper}>
+          <PathCanvas
+            nodes={nodes}
+            onNodePress={handleNodePress}
+            width={SCREEN_WIDTH - 20}
+          />
         </View>
       </ScrollView>
+
+      {/* ─── Floating Anchored Node Preview Tooltip ─── */}
+      <NodePreviewTooltip
+        node={selectedNode}
+        anchorLayout={anchorLayout}
+        visible={tooltipVisible}
+        onDismiss={() => setTooltipVisible(false)}
+        onStartSprint={handleStartSprint}
+      />
     </SafeAreaView>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-
-  // ── Top Bar ──
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
+    paddingVertical: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 2,
     borderBottomColor: colors.cardBorder,
+    gap: 8,
   },
   statPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: colors.backgroundSoft,
+    borderWidth: 2,
+    borderColor: colors.cardBorder,
+    borderBottomWidth: 3,
+    borderBottomColor: '#D5D5D5',
+    gap: 5,
+    flex: 1,
+    justifyContent: 'center',
   },
   statEmoji: {
-    fontSize: 18,
+    fontSize: 16,
   },
   statNum: {
-    fontSize: 17,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
   },
-
   syncBanner: {
     backgroundColor: '#FEF3C7',
     paddingVertical: 6,
@@ -334,213 +492,103 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-
   scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-
-  // ── Mascot + Speech Bubble ──
-  mascotRow: {
-    flexDirection: 'row',
+    paddingBottom: 60,
     alignItems: 'center',
-    marginBottom: 20,
   },
-  mascotImg: {
-    width: 80,
-    height: 80,
+  mascotRow: {
+    width: '100%',
+    paddingHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
   },
-  speechBubble: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: colors.cardBorder,
-    borderRadius: duo.radiusCard,
-    padding: 14,
-    marginLeft: 12,
-    flex: 1,
-    position: 'relative',
-  },
-  speechText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-    lineHeight: 22,
-  },
-  speechArrow: {
-    position: 'absolute',
-    left: -8,
-    top: 18,
-    width: 0,
-    height: 0,
-    borderTopWidth: 8,
-    borderBottomWidth: 8,
-    borderRightWidth: 8,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderRightColor: colors.cardBorder,
-  },
-
-  // ── Sprint Card ──
   sprintCard: {
+    width: SCREEN_WIDTH - 32,
     backgroundColor: '#FFFFFF',
     borderRadius: duo.radiusCard,
     borderWidth: 2,
     borderColor: colors.cardBorder,
-    borderBottomWidth: duo.depthCard + 2,
+    borderBottomWidth: 4,
     borderBottomColor: '#D5D5D5',
-    padding: 20,
-    marginBottom: 28,
+    padding: 16,
+    marginVertical: 10,
   },
   sprintRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   sprintTag: {
-    fontSize: duo.fontSmall,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
     color: colors.primary,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   sprintTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: colors.text,
     marginTop: 2,
   },
   progressTrack: {
-    height: 16,
+    height: 12,
     backgroundColor: colors.cardBorder,
-    borderRadius: duo.radiusProgress,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors.cardBorder,
     overflow: 'hidden',
     marginBottom: 6,
   },
   progressFill: {
     height: '100%',
     backgroundColor: colors.duoGold,
-    borderRadius: duo.radiusProgress,
+    borderRadius: 6,
   },
   progressLabel: {
-    fontSize: duo.fontSmall,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.textMuted,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   startBtn: {
     borderRadius: duo.radiusButton,
+    borderBottomWidth: 4,
+    borderBottomColor: colors.duoGreenDark,
     overflow: 'hidden',
   },
   startBtnInner: {
     backgroundColor: colors.duoGreen,
     paddingVertical: 14,
-    borderRadius: duo.radiusButton,
     alignItems: 'center',
-    borderBottomWidth: duo.depthButton,
-    borderBottomColor: colors.duoGreenDark,
+    justifyContent: 'center',
   },
   startBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 1,
+    fontWeight: '900',
+    letterSpacing: 0.8,
   },
-
-  // ── Section Header ──
+  pathHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: SCREEN_WIDTH - 32,
+    marginVertical: 18,
+    gap: 12,
+  },
+  headerLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: colors.cardBorder,
+  },
   sectionHeader: {
-    fontSize: duo.fontCaption,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '900',
     color: colors.textMuted,
     letterSpacing: 1.5,
-    marginBottom: 24,
-    textAlign: 'center',
   },
-
-  // ── Zig-Zag Path ──
-  pathContainer: {
+  canvasWrapper: {
+    width: SCREEN_WIDTH,
     alignItems: 'center',
-    position: 'relative',
-    paddingVertical: 10,
-  },
-  verticalTrack: {
-    position: 'absolute',
-    top: 40,
-    bottom: 40,
-    width: 8,
-    backgroundColor: colors.cardBorder,
-    borderRadius: 4,
-  },
-
-  // ── Node ──
-  nodeWrapper: {
-    alignItems: 'center',
-    marginVertical: 14,
-    position: 'relative',
-  },
-  tooltip: {
-    position: 'absolute',
-    top: -34,
-    backgroundColor: colors.duoGreen,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: duo.radiusCard,
-    zIndex: 10,
-  },
-  tooltipText: {
-    color: '#FFFFFF',
-    fontSize: duo.fontSmall,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  tooltipArrow: {
-    position: 'absolute',
-    bottom: -6,
-    alignSelf: 'center',
-    left: '50%',
-    marginLeft: -6,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-    borderTopWidth: 6,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: colors.duoGreen,
-  },
-  outerRing: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  chunkyCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderBottomWidth: 6,
-  },
-  nodeIcon: {
-    fontSize: 28,
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  nodeTitle: {
-    marginTop: 6,
-    fontSize: duo.fontCaption,
-    fontWeight: '700',
-    color: colors.text,
-    textAlign: 'center',
-  },
-  nodeCategory: {
-    fontSize: duo.fontSmall,
-    fontWeight: '700',
-    color: colors.textMuted,
-    letterSpacing: 0.5,
-  },
-  nodeTitleLocked: {
-    color: colors.textMuted,
   },
 });

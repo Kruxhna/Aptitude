@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const path = require('path');
 
 const { connectDB } = require('./config/db');
 const redis = require('./config/redis');
@@ -15,15 +16,23 @@ const userRoutes = require('./routes/users');
 const leaderboardRoutes = require('./routes/leaderboard');
 const analyticsRoutes = require('./routes/analytics');
 const onboardingRoutes = require('./routes/onboarding');
+const friendRoutes = require('./routes/friends');
+const leagueRoutes = require('./routes/leagues');
+const pathRoutes = require('./routes/path');
+const mascotRoutes = require('./routes/mascot');
 
 const app = express();
 const PORT = process.env.API_PORT || 3000;
 
 // --- Middleware ---
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors());
 app.use(express.json());
 app.use(mockUserMiddleware);
+
+// --- Static Assets (Spatial Images) ---
+app.use(express.static(path.join(__dirname, '../public')));
+app.use('/spatial', express.static(path.join(__dirname, '../public/spatial')));
 
 // --- Routes ---
 app.use(healthRoutes);
@@ -32,6 +41,10 @@ app.use(userRoutes);
 app.use(leaderboardRoutes);
 app.use(analyticsRoutes.router);
 app.use(onboardingRoutes);
+app.use(friendRoutes);
+app.use(leagueRoutes);
+app.use(pathRoutes);
+app.use(mascotRoutes);
 
 // --- Error Handler ---
 app.use((err, req, res, next) => {
