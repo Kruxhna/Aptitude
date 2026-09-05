@@ -49,7 +49,7 @@ class MockRedis {
 
 let redis;
 
-if (process.env.MOCK_REDIS === 'true') {
+if (process.env.MOCK_REDIS === 'true' || process.env.NODE_ENV === 'test') {
   redis = new MockRedis();
 } else {
   const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
