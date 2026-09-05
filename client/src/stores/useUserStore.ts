@@ -21,6 +21,10 @@ export interface UserState {
   highestStreak: number;
   freezesAvailable: number;
   totalXp: number;
+  gems: number;
+  inventory: Array<{ itemId: string; quantity: number }>;
+  activeBoosts: Array<{ boostType: string; expiresAt: string; multiplier: number }>;
+  achievements: Array<{ id: string; title: string; icon: string; gemReward: number; unlockedAt: string }>;
   activeCostume: CostumeId;
   unlockedCostumes: CostumeId[];
   currentLeague: string;
@@ -32,6 +36,7 @@ export interface UserState {
   setUserFromResponse: (user: Partial<UserMeResponse>) => void;
   updateElo: (elo: Partial<UserElo>) => void;
   optimisticAddXp: (amount: number) => void;
+  optimisticAddGems: (amount: number) => void;
   optimisticIncrementStreak: () => void;
   optimisticResetStreak: () => void;
   setActiveCostume: (costumeId: CostumeId) => void;
@@ -54,6 +59,10 @@ const DEFAULT_USER_STATE = {
   highestStreak: 0,
   freezesAvailable: 1,
   totalXp: 0,
+  gems: 100,
+  inventory: [],
+  activeBoosts: [],
+  achievements: [],
   activeCostume: 'DEFAULT' as CostumeId,
   unlockedCostumes: ['DEFAULT'] as CostumeId[],
   currentLeague: 'Bronze',
@@ -68,9 +77,6 @@ export const useUserStore = create<UserState>()(
       ...DEFAULT_USER_STATE,
 
       setUserFromResponse: (user: Partial<UserMeResponse>) => {
-        const streakCurrent = user.streak?.current ?? user.currentStreak ?? get().currentStreak;
-        const highest = Math.max(get().highestStreak, streakCurrent);
-
         set({
           userId: user.id || user.userId || get().userId,
           displayName: user.displayName || get().displayName,
@@ -79,11 +85,15 @@ export const useUserStore = create<UserState>()(
             quantitative: user.elo?.quantitative ?? get().elo.quantitative,
             logical: user.elo?.logical ?? get().elo.logical,
             spatial: user.elo?.spatial ?? get().elo.spatial,
+            ...(user.elo || {}),
           },
-          currentStreak: streakCurrent,
-          highestStreak: highest,
+          currentStreak: user.streak?.current ?? user.currentStreak ?? get().currentStreak,
           freezesAvailable: user.streak?.freezesAvailable ?? get().freezesAvailable,
           totalXp: user.xpTotal ?? user.totalXp ?? get().totalXp,
+          gems: user.gems ?? get().gems,
+          inventory: user.inventory ?? get().inventory,
+          activeBoosts: user.activeBoosts ?? get().activeBoosts,
+          achievements: user.achievements ?? get().achievements,
           currentLeague: user.currentLeague || get().currentLeague,
           activeCostume: (user.mascot?.activeCostume as CostumeId) || get().activeCostume,
           unlockedCostumes:
@@ -111,6 +121,13 @@ export const useUserStore = create<UserState>()(
       optimisticAddXp: (amount: number) => {
         set((state) => ({
           totalXp: state.totalXp + amount,
+          isPendingSync: true,
+        }));
+      },
+
+      optimisticAddGems: (amount: number) => {
+        set((state) => ({
+          gems: Math.max(0, state.gems + amount),
           isPendingSync: true,
         }));
       },
@@ -149,11 +166,9 @@ export const useUserStore = create<UserState>()(
         try {
           set({ isLoading: true });
           const user = await api.getUserMe();
-          if (user) {
-            get().setUserFromResponse(user);
-          }
+          get().setUserFromResponse(user);
         } catch (err) {
-          console.warn('[useUserStore] fetchUserProfile offline fallback:', err);
+          console.warn('[useUserStore] Failed to fetch user profile, using cached:', err);
           set({ isLoading: false });
         }
       },
@@ -173,6 +188,10 @@ export const useUserStore = create<UserState>()(
         highestStreak: state.highestStreak,
         freezesAvailable: state.freezesAvailable,
         totalXp: state.totalXp,
+        gems: state.gems,
+        inventory: state.inventory,
+        activeBoosts: state.activeBoosts,
+        achievements: state.achievements,
         activeCostume: state.activeCostume,
         unlockedCostumes: state.unlockedCostumes,
         currentLeague: state.currentLeague,

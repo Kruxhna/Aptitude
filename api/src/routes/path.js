@@ -196,6 +196,8 @@ const PATH_TOPOLOGY = [
 // ─── Decay Threshold: 5 days in ms ──────────────────────────────
 const DECAY_THRESHOLD_MS = 5 * 24 * 60 * 60 * 1000;
 
+const { calculateStability, calculateRetention, DECAY_THRESHOLD_REVIEW } = require('../services/decayEngine');
+
 /**
  * Helper to calculate user's node states across the DAG.
  */
@@ -207,9 +209,7 @@ function computeNodeStates(topology, userProgress, userElo) {
     });
   }
 
-  // If new user with no progress, default first 2 nodes as completed for rich demonstration if configured,
-  // or default to clean progression starting at node-1.
-  const now = Date.now();
+  const now = new Date();
   let currentFound = false;
 
   return topology.map((item, index) => {
@@ -217,11 +217,17 @@ function computeNodeStates(topology, userProgress, userElo) {
     let state = 'LOCKED';
     let accuracy = progress ? progress.accuracy : null;
     let completedAt = progress ? progress.completedAt : null;
+    let retention = 1.0;
 
     if (progress) {
-      // Check for skill decay
-      const timeSinceCompletion = completedAt ? now - new Date(completedAt).getTime() : 0;
-      if (timeSinceCompletion > DECAY_THRESHOLD_MS) {
+      const deltaDays = completedAt
+        ? Math.max(0, (now.getTime() - new Date(completedAt).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+      const stability = calculateStability(progress.accuracy ?? 1.0);
+      retention = calculateRetention(deltaDays, stability);
+
+      // Check dynamic memory decay
+      if (retention < DECAY_THRESHOLD_REVIEW) {
         state = 'REVIEW';
       } else if (progress.accuracy >= 0.90) {
         state = 'PERFECT';

@@ -454,6 +454,44 @@ export const api = {
     return response.data;
   },
 
+  // ─── Shop & Boosts ──────────────────────────────────────────
+  getShopCatalog: async (): Promise<{
+    gems: number;
+    items: any[];
+    inventory: any[];
+    activeBoosts: any[];
+    freezesAvailable: number;
+    unlockedCostumes: string[];
+  }> => {
+    const response = await apiClient.get('/shop/catalog');
+    return response.data;
+  },
+
+  buyShopItem: async (itemId: string, idempotencyKey?: string): Promise<any> => {
+    const headers: Record<string, string> = {};
+    if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+    const response = await apiClient.post('/shop/buy-item', { itemId }, { headers });
+    return response.data;
+  },
+
+  activateBoost: async (itemId: string, idempotencyKey?: string): Promise<any> => {
+    const headers: Record<string, string> = {};
+    if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+    const response = await apiClient.post('/shop/activate-boost', { itemId }, { headers });
+    return response.data;
+  },
+
+  // ─── Push Notifications ────────────────────────────────────
+  registerPushToken: async (pushToken: string): Promise<{ success: boolean }> => {
+    const response = await apiClient.post('/notifications/register-token', { pushToken });
+    return response.data;
+  },
+
+  unregisterPushToken: async (pushToken: string): Promise<{ success: boolean }> => {
+    const response = await apiClient.delete('/notifications/unregister-token', { data: { pushToken } });
+    return response.data;
+  },
+
   // ─── Learning Path / DAG ────────────────────────────────────
   getPathTree: async (): Promise<PathTreeResponse> => {
     const response = await apiClient.get('/path/tree');

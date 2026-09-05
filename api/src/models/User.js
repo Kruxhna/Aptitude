@@ -7,6 +7,23 @@ const userSchema = new Schema({
   authId: { type: String, required: true, unique: true, index: true },
   displayName: { type: String, required: true },
   xpTotal: { type: Number, default: 0 },
+  gems: { type: Number, default: 100 },
+  
+  // ── Generalized Inventory & Active Boosts ──
+  inventory: [{
+    itemId: { type: String, required: true },
+    quantity: { type: Number, default: 1 },
+  }],
+  activeBoosts: [{
+    boostType: { type: String, required: true },
+    expiresAt: { type: Date, required: true },
+    multiplier: { type: Number, default: 2.0 },
+  }],
+
+  // ── User Timezone & Push Notifications ──
+  timezone: { type: String, default: 'UTC' },
+  pushTokens: [{ type: String }],
+
   elo: {
     verbal: { type: Number, default: 1000 },
     quantitative: { type: Number, default: 1000 },
@@ -18,6 +35,17 @@ const userSchema = new Schema({
     freezesAvailable: { type: Number, default: 1 },
     lastCompletedUTCDate: { type: String, default: null }, // "YYYY-MM-DD"
   },
+
+  // ── Achievements ──
+  achievements: [{
+    id: { type: String, required: true },
+    unlockedAt: { type: Date, default: Date.now },
+    title: { type: String },
+    description: { type: String },
+    icon: { type: String },
+    gemReward: { type: Number, default: 0 },
+  }],
+
   // ── League system ──
   currentLeague: {
     type: String,
