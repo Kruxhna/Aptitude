@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -7,6 +8,9 @@ const path = require('path');
 
 const { connectDB } = require('./config/db');
 const redis = require('./config/redis');
+const { initQueue } = require('./config/queue');
+const { initWorkerHandlers } = require('./services/workerHandlers');
+const { initBattleEngine } = require('./services/battleEngine');
 const mockUserMiddleware = require('./middleware/mockUser');
 
 // Route imports
@@ -20,6 +24,8 @@ const friendRoutes = require('./routes/friends');
 const leagueRoutes = require('./routes/leagues');
 const pathRoutes = require('./routes/path');
 const mascotRoutes = require('./routes/mascot');
+const shopRoutes = require('./routes/shop');
+const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 const PORT = process.env.API_PORT || 3000;
@@ -45,6 +51,8 @@ app.use(friendRoutes);
 app.use(leagueRoutes);
 app.use(pathRoutes);
 app.use(mascotRoutes);
+app.use(shopRoutes);
+app.use(notificationRoutes);
 
 // --- Error Handler ---
 app.use((err, req, res, next) => {
@@ -54,18 +62,31 @@ app.use((err, req, res, next) => {
   });
 });
 
+const server = http.createServer(app);
+
 // --- Start Server ---
 async function start() {
   await connectDB();
-  
-  app.listen(PORT, () => {
-    console.log(`✓ API server running on port ${PORT}`);
+
+  // Initialize BullMQ Queue & Worker Handlers
+  initQueue();
+  initWorkerHandlers();
+
+  // Initialize 1v1 WebSocket Battle Engine
+  initBattleEngine(server);
+
+  server.listen(PORT, () => {
+    console.log(`✓ API server & WebSockets running on port ${PORT}`);
   });
 }
 
-start().catch((err) => {
-  console.error('Failed to start API server:', err);
-  process.exit(1);
-});
+// In test mode we export app without binding port
+if (process.env.NODE_ENV !== 'test') {
+  start().catch((err) => {
+    console.error('Failed to start API server:', err);
+    process.exit(1);
+  });
+}
 
 module.exports = app;
+module.exports.server = server;

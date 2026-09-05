@@ -4,6 +4,7 @@ const QuizSession = require('./QuizSession');
 const PlacementQuestion = require('./PlacementQuestion');
 const Friend = require('./Friend');
 const LeagueHistory = require('./LeagueHistory');
+const GemTransaction = require('./GemTransaction');
 
 module.exports = {
   Question,
@@ -12,4 +13,5 @@ module.exports = {
   PlacementQuestion,
   Friend,
   LeagueHistory,
+  GemTransaction,
 };
